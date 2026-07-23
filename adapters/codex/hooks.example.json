@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /ABSOLUTE/PATH/TO/personal-memory/adapters/codex/on_user_prompt.py",
+            "statusMessage": "个人档案记忆：识别 记/忆 意图",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

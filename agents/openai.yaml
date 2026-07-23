@@ -1,0 +1,4 @@
+interface:
+  display_name: "Personal Memory"
+  short_description: "逐字保存，并在个人材料、表单和官网填写场景准确召回档案"
+  default_prompt: "Use $personal-memory to save my personal facts or recall them for a profile, form, or application."
