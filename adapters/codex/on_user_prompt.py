@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""[Codex CLI] UserPromptSubmit hook — 个人档案记忆的"记 / 忆"意图识别 + 注入指令。
+"""[Codex CLI] UserPromptSubmit hook for Memory Workspace intents.
 
 hook 无法调用 LLM，只做确定性的关键词粗判，把该做的事作为指令注入 agent：
+  - 命中 Workspace/Wiki 信号                 → 注入 PROJECT_WIKI 指令
   - 命中"记"信号（记住/存一下/记录…）    → 注入 REMEMBER 指令，让 agent 用 store.py 存
   - 命中文件导入信号                       → 注入 IMPORT_FILE 指令，先 checklist 后存
   - 命中显式召回或个人材料/表单场景         → 注入 RECALL 指令，让 agent 按需 search/get
@@ -17,6 +18,15 @@ import sys
 
 _SCRIPTS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "scripts"))
 STORE = os.path.join(_SCRIPTS, "store.py")
+WORKSPACE = os.path.join(_SCRIPTS, "workspace.py")
+
+WORKSPACE_SIGNALS = [
+    r"(创建|新建|初始化).{0,12}(workspace|工作区|wiki|知识库)",
+    r"(收录|导入|放进|加入|添加).{0,16}(workspace|工作区|wiki|知识库)",
+    r"(workspace|工作区|wiki|知识库).{0,16}(收录|导入|检查|诊断|查询|检索|维护)",
+    r"(检查|诊断|查询|检索|维护).{0,16}(workspace|工作区|wiki|知识库)",
+    r"\b(init|inspect|check|ingest).{0,16}(workspace|wiki)\b",
+]
 
 # "记"信号：用户想存东西
 REMEMBER_SIGNALS = [
@@ -55,9 +65,22 @@ def hit(text, patterns):
     return any(re.search(p, text, re.IGNORECASE) for p in patterns)
 
 
-REMEMBER_TMPL = """[personal-memory] REMEMBER
+PROJECT_WIKI_TMPL = """[memory-workspace] PROJECT_WIKI
 
-用户似乎想记住某个个人信息。请遵循 personal-memory skill：
+用户似乎想操作本机项目知识库。请遵循 memory-workspace skill：
+
+1. 先排除只是在开发一个通用 Wiki 产品、写示例代码或讨论概念的情况；只有实际操作用户的本地知识库时才继续。
+2. 第一次写入前运行：python3 {workspace} doctor。只写本机持久目录，不回退到项目或 /tmp。
+3. 创建使用 `init`；发现与查询先用 `list --json` / `inspect --json`；明确收录文件时用 `source ingest`。
+4. 写入后必须运行 `check --json`。只在 status=OK 时报告完成。
+5. `source ingest` 只完成不可变收录和来源说明，不代表已经提炼事实或完成综合。
+6. 不覆盖 raw 来源，不保存秘密，不上传或公开真实内容，不伪造尚未实现的连接器、审批或删除命令。
+
+Workspace CLI：{workspace}"""
+
+REMEMBER_TMPL = """[memory-workspace/profile] REMEMBER
+
+用户似乎想记住某个个人信息。请遵循 memory-workspace skill 的 Profile Memory 工作流：
 
 1. 先运行：python3 {store} doctor。仅向本机持久目录写入；权限失败或路径临时时停止，绝不回退到项目或 /tmp。
 2. 判断这是**单值**（邮箱/学号/地址/卡号…）还是**结构化条目**（经历/获奖，含公司/岗位/时间等多字段）。
@@ -70,9 +93,9 @@ REMEMBER_TMPL = """[personal-memory] REMEMBER
 
 档案文件：{store_hint}"""
 
-IMPORT_FILE_TMPL = """[personal-memory] IMPORT_FILE
+IMPORT_FILE_TMPL = """[memory-workspace/profile] IMPORT_FILE
 
-用户想从文件中整理并保存个人信息。请遵循 personal-memory skill：
+用户想从文件中整理并保存个人信息。请遵循 memory-workspace skill 的 Profile Memory 工作流：
 
 1. 不绑定文件格式或解析工具；使用当前 Agent 环境最合适的现有能力读取文件。无法读取时如实说明。
 2. 只提取用户需要保存的个人事实，保留原始拼写、数字和标点；不确定内容标为"待确认"。
@@ -82,9 +105,9 @@ IMPORT_FILE_TMPL = """[personal-memory] IMPORT_FILE
 
 档案文件：{store_hint}"""
 
-RECALL_TMPL = """[personal-memory] RECALL
+RECALL_TMPL = """[memory-workspace/profile] RECALL
 
-用户明确想调用个人信息，或正在进行通常需要本人事实的个人材料/表单任务。请遵循 personal-memory skill：
+用户明确想调用个人信息，或正在进行通常需要本人事实的个人材料/表单任务。请遵循 memory-workspace skill 的 Profile Memory 工作流：
 
 1. 先判断任务是否真的需要用户本人的事实；若只是通用模板、代码或示例人物，忽略本指令。
 2. 根据当前场景判断需要哪些字段。字段明确时 search 相关 key；范围较广时先 list 查看 key 概览。
@@ -112,9 +135,12 @@ def main():
     is_remember = hit(prompt, REMEMBER_SIGNALS)
     is_file = hit(prompt, FILE_SIGNALS)
     is_recall = hit(prompt, RECALL_SIGNALS)
+    is_workspace = hit(prompt, WORKSPACE_SIGNALS)
 
-    # 同时命中时优先"记"（用户明确要存），否则按命中项注入
-    if is_remember and is_file:
+    # 明确提到 Wiki/Workspace 时优先项目知识库，避免把来源文件误存为个人档案。
+    if is_workspace:
+        print(PROJECT_WIKI_TMPL.format(workspace=WORKSPACE))
+    elif is_remember and is_file:
         print(IMPORT_FILE_TMPL.format(store=STORE, store_hint=store_hint))
     elif is_remember:
         print(REMEMBER_TMPL.format(store=STORE, store_hint=store_hint))

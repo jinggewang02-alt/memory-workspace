@@ -1,156 +1,122 @@
 ---
-name: personal-memory
-description: 精确、持久地保存和召回用户个人档案，逐字保真处理邮箱、学号、地址等单值，以及实习、获奖、项目等结构化条目。用户明确要求记住、修改或调用个人资料时使用；用户即使没有提到“记忆”，只要正在为本人创建或编辑自我介绍、个人简介、简历、申请材料，或填写官网、表单、报名与申请页面等需要个人事实的场景，也使用本 skill 主动召回相关字段。还支持从当前 Agent 环境能够读取的文件中整理信息。少量明确事实直接保存；大量信息或文件导入先给 checklist。
+name: memory-workspace
+description: 维护本机优先、以项目为中心的个人知识库，并精确保存和召回跨项目个人档案。用户要求创建或检查 Workspace/Wiki/知识库、收录文件或证据、查询已有项目知识、维护来源链，或明确要求记住、修改、调用个人资料时使用；为本人创建简历、自我介绍、申请材料或填写表单而需要个人事实时也使用。项目证据进入 Workspace，邮箱、学号、地址和结构化经历等精确事实进入 Profile Memory；两者不得静默混用。
 ---
 
-# Personal Memory
+# Memory Workspace
 
-将脚本解析为相对于本 `SKILL.md` 所在目录的 `scripts/store.py`。始终通过脚本读写，禁止依靠对话记忆代替文件存储。
+将所有脚本路径解析为相对于本 `SKILL.md` 所在目录。Workspace 操作使用
+`scripts/workspace.py`；跨项目精确个人档案使用 `scripts/store.py`。不要用对话记忆
+代替文件存储。
 
-## 核心保证
+## 先判断数据属于哪里
 
-- 逐字保存和取回用户提供的值；不要润色、纠正或改写专有名词。
-- 默认保存到用户本机的 `~/.personal-memory/store.json`，跨项目复用。
-- 不要把正式记忆回退到 `/tmp`、沙箱临时目录或当前项目。
-- 仅在需要某项信息时检索，不要把完整档案注入上下文。
-- 写入失败时明确说“没有保存成功”，不得声称已经记住。
+| 内容 | 存储 | 例子 |
+|---|---|---|
+| 项目证据与知识 | Workspace | 文档、聊天快照、来源说明、项目决策、专题总结 |
+| 用户在某个项目中的想法 | Workspace `personal/` | 项目担忧、假设、反思、待确认偏好 |
+| 跨项目精确个人事实 | Profile Memory | 邮箱、学号、地址、分版本账号、结构化经历 |
 
-## 写入前检查
+不得把整个 Profile Memory 复制进 Workspace，也不得从项目材料中自动提取并写回
+个人档案。只有用户明确要求保存个人事实时才写 Profile Memory。
 
-每次写入前运行：
+## 共同安全边界
+
+- 正式数据只写入本机持久目录；不得静默回退到项目目录或临时目录。
+- `raw/` 来源和连接器快照不可变；不得覆盖、改名、移动或删除。
+- 密码、验证码、访问令牌、Cookie、私钥和助记词不得保存。
+- 不得上传、公开、发送或授权访问任何真实内容，除非用户明确批准该外部动作。
+- 写入失败时明确说没有成功；不要用口头承诺代替读回或校验。
+- 事实、推断、用户观点和开放问题必须分开；来源范围内没有记录，不代表事件没有发生。
+
+## Workspace 工作流
+
+第一次在一个环境中写入前运行：
+
+```bash
+python3 <skill-dir>/scripts/workspace.py doctor
+```
+
+若 `status` 不是 `OK`，先处理显示的确切持久路径或权限问题。临时路径只允许
+自动化测试显式设置 `MWORK_ALLOW_TRANSIENT=1`，真实任务不得使用。
+
+### 创建和发现
+
+用户明确要求创建 Workspace 时可直接执行，不要额外确认：
+
+```bash
+python3 <skill-dir>/scripts/workspace.py init <workspace-id> --name "<名称>"
+python3 <skill-dir>/scripts/workspace.py list --json
+python3 <skill-dir>/scripts/workspace.py inspect <workspace-id> --json
+```
+
+`workspace-id` 使用稳定的小写 kebab-case。不能可靠判断目标 Workspace 且不同选择会
+改变数据归属时，只问一个简短问题。
+
+### 收录手动来源
+
+用户明确要求把某个文件加入知识库时：
+
+1. 解析精确文件和目标 Workspace。
+2. 执行 `source ingest`；该命令复制不可变原文、计算 SHA-256、创建 Source Note，
+   并记录 Operation。
+3. 执行 `check`，确认布局、来源哈希、Wiki 链接和 Operation 都通过。
+4. 只报告“已收录”及 Source ID。当前命令不会自动提炼事实；不要声称已经完成知识
+   综合。
+
+```bash
+python3 <skill-dir>/scripts/workspace.py source ingest \
+  <workspace-id> /absolute/path/to/file --title "<标题>" --json
+python3 <skill-dir>/scripts/workspace.py check <workspace-id> --json
+```
+
+相同内容重复收录会返回原 Source ID，不创建副本。识别到私钥标记时必须停止。
+
+### 查询已有知识
+
+1. 用 `list` / `inspect` 解析 Workspace 的精确路径。
+2. 先读 `wiki/index.md`，再读最小相关项目页和 `wiki/sources/S-*.md`。
+3. 回答先给结论；材料性事实指向对应 `[[sources/S-...]]`，并标明推断、用户观点、
+   分歧或证据缺口。
+4. 普通问题优先使用已有快照。只有用户要求当前信息，或旧快照会实质影响答案时，
+   才进入连接器刷新流程。
+
+当前 CLI MVP 只实现初始化、手动来源收录和检查。连接器刷新、自动综合、proposal
+审批和删除尚未实现；不要伪造这些命令，也不要绕开 Operation 审计直接修改不可变层。
+详细命令契约见 [references/workspace-cli.md](references/workspace-cli.md)，证据和 UI
+边界见 [references/data-model.md](references/data-model.md)。
+
+## Profile Memory 工作流
+
+写入前先运行：
 
 ```bash
 python3 <skill-dir>/scripts/store.py doctor
 ```
 
-按以下规则处理：
-
-1. `status: OK`：继续写入；沙箱仍可能要求对输出目录授权。
-2. 路径被判定为临时目录：停止写入，选择或请用户指定已挂载的本机持久目录，并通过 `PMEM_DIR` 或 `PMEM_FILE` 显式设置。
-3. 当前运行在远程容器、临时会话或无法访问宿主机目录：不要承诺永久保存。请用户提供已挂载的持久目录。
-4. 权限不足：请求对 `doctor` 显示的确切目录授权。授权失败时停止，不要改存项目目录。
-
-仅尊重用户显式配置的 `PMEM_FILE` 或 `PMEM_DIR`。不要使用 `PMEM_PROJECT_DIR`，以免把个人档案写进项目或临时沙箱。
-
-## 判断数据类型
-
-- `single`：邮箱、学号、地址、电话等一个 key 对应一个完整原文。
-- `entries`：实习、获奖、项目等一个 key 下有多条结构化记录。
-
-## 少量明确事实：直接保存
-
-当用户一次提供 1–3 个明确事实时，不要在写入前逐项提问。
-
-1. 原样提取 key 和 value。
-2. 用 `set` 保存单值，或用 `add` 保存结构化条目。
-3. 立即用 `get` 读回并逐字校验。
-4. 使用以下语气告知结果：
-
-> 好的，帮你记下来了：学号 = 25210170080。如果有问题请告诉我，我会帮你修改。
-
-多个少量事实可用简短列表展示。只有在内容本身无法判断、存在两个互相冲突的候选值，或即将覆盖但用户意图不明确时，才先追问。
+- 1–3 个明确事实：直接用 `set` 或 `add` 保存，再用 `get` 逐字读回校验。
+- 4 个及以上事实、多条结构化经历或文件导入：先给一份 checklist；用户确认后写入并
+  逐项读回。用户明确说无需核对时可跳过确认，但不得跳过读回。
+- 召回时先 `search` 或 `list`，再只 `get` 当前任务需要的字段；不得注入整份档案。
+- 当前输入与档案冲突时，提醒用户选择本次使用哪个值；不得顺便覆盖。
+- 删除属于破坏性操作；除非用户已经给出精确 key 或条目并明确要求删除，否则先确认。
 
 ```bash
-# 单值
 python3 <skill-dir>/scripts/store.py set 学号 "25210170080"
-
-# 结构化条目
 python3 <skill-dir>/scripts/store.py add 实习经历 \
-  --field 公司="字节跳动" \
-  --field 岗位="AI Infra 实习生" \
-  --field 时间="2024.06-2024.09"
-```
-
-## 大量信息：先给 checklist
-
-将“4 个及以上独立事实”、多条结构化经历，或任何文件导入视为大量信息。
-
-1. 先整理为 checklist，不写入：
-
-```markdown
-请核对准备保存的信息：
-
-- [ ] 姓名：……
-- [ ] 学号：……
-- [ ] 实习经历 1
-  - 公司：……
-  - 岗位：……
-  - 时间：……
-```
-
-2. 对缺失、冲突、提取不确定或可能被排版破坏的字段标注 `待确认`，不要猜。
-3. 请用户一次性确认整个 checklist；用户指出修改时更新 checklist。
-4. 用户确认后批量写入，并逐项 `get` 校验。
-5. 最后展示已保存项目的简明清单，并说明可继续修改。
-
-若用户明确说“无需核对，直接保存”，可跳过确认，但仍须写后校验。
-
-## 从文件导入
-
-不要在本 skill 中绑定文件格式、解析库或专用工具。根据当前 Agent 环境已有的能力读取用户提供的文件；支持范围由该环境实际可用的工具决定。
-
-1. 使用当前环境最合适的现有能力读取文件。能读取就继续；不能读取就如实说明限制，不要假装已经解析。
-2. 只整理用户要求保存的个人事实，不默认保存整篇文档。
-3. 尽量保留文档中的原始拼写、大小写、标点和数字。不要静默修复疑似错字。
-4. 如果环境能可靠取得页码、工作表、段落或其他位置，作为 checklist 的核对依据；这些位置默认不写入记忆值。
-5. 将内容模糊、同名字段冲突、排版断行或解析不确定等情况标为 `待确认`。
-6. 把 checklist 发给用户核对；确认后再用 `set` / `add` 保存并逐项读回。
-
-## 召回：显式请求与场景触发
-
-不要只在用户问“你记得我的……吗”时召回。当任务需要用户本人的事实时，主动使用本 skill，包括：
-
-- 创建或编辑自我介绍、个人简介、个人陈述、简历、个人主页。
-- 准备求职、入学、奖学金、签证、报名等个人申请材料。
-- 填写或完善官网、网页、表单、账户资料、报名页或申请页。
-- 将个人信息整理成特定场景需要的格式。
-
-先判断任务是否真的需要用户本人的事实。若只是制作通用模板、编写表单代码或讨论示例人物，不要读取个人档案。
-
-按以下顺序召回：
-
-1. 从任务或表单字段判断需要哪些事实。
-2. 字段明确时用 `search` 查相关 key；任务范围较广时可先用 `list` 查看 key 概览。
-3. 仅对本次需要的 key 使用 `get`，不要读取或展示整份档案。
-4. 将 `get` 返回的姓名、号码、日期、机构名、岗位名、奖项名等事实逐字使用。
-5. 可根据场景编辑自我介绍等叙述性文字，但不得借润色改变已存事实。
-6. 档案缺少必需字段时，只询问缺少的内容，不要猜测。
-7. 当前请求中的新值与档案冲突时，优先提醒用户并确认本次使用哪个值；不要顺便覆盖档案，除非用户要求修改记忆。
-
-召回本身是只读操作。用户只要求填表或编辑材料时，不要把新内容自动写回档案。
-
-### 命令
-
-先检索，再取原文：
-
-```bash
+  --field 公司="字节跳动" --field 岗位="AI Infra 实习生"
 python3 <skill-dir>/scripts/store.py search 地址
 python3 <skill-dir>/scripts/store.py get 快递地址
-python3 <skill-dir>/scripts/store.py get 实习经历 --index 1 --field 岗位
 ```
 
-- 直接使用 `get` 返回的原文。没有结果就说没有，不要补全或猜测。
-- 用户修改单值时，用 `set` 覆盖并读回校验。
-- 删除数据属于破坏性操作；先确认精确 key 或条目序号，再运行 `remove`。
+原文必须逐字往返，不要润色、纠错或标准化姓名、号码、日期、大小写和标点。详细的
+少量事实、大批量导入、文件解析和场景召回规则见
+[references/profile-workflows.md](references/profile-workflows.md)；底层兼容格式见
+[references/store-schema.md](references/store-schema.md)。
 
-## 命令速查
+## 完成标准
 
-| 命令 | 作用 |
-|---|---|
-| `doctor` | 显示实际路径、来源和临时目录风险 |
-| `set <key> <value>` | 存储或覆盖单值 |
-| `add <key> --field k=v ...` | 追加结构化条目 |
-| `get <key> [--index N] [--field F]` | 逐字取回 |
-| `search <关键词>` | 按 key 模糊检索 |
-| `list` | 列出 key 概览 |
-| `remove <key> [--index N]` | 删除 key 或条目 |
-| `export [--out FILE]` | 导出为 Markdown |
-| `path` | 打印实际存储路径 |
-
-存储结构详见 [references/store-schema.md](references/store-schema.md)。设计或实现项目型 Workspace、来源证据链、前端 UI 或跨版本迁移时，读取 [references/data-model.md](references/data-model.md)；当前精确个人事实仍以 `store-schema.md` 和 `store.py` 为准。需要配置 Codex CLI hook 时，读取 [references/codex-hook.md](references/codex-hook.md)。
-
-## 隐私边界
-
-- 存储文件为本机明文 JSON，并非加密保险库。
-- 对密码、验证码、私钥、助记词等高风险秘密，提醒用户不要保存。
-- 不要在 `list`、日志或无关回复中展示完整敏感值。
+- Workspace 写入：命令成功，并且随后 `check` 返回 `status: OK`。
+- Profile Memory 写入：命令成功，并且 `get` 返回值与用户原文逐字一致。
+- 查询：结论与来源、推断、用户观点和缺口边界清楚。
+- 未完成的 MVP 能力：明确报告边界，不用手工伪装成功。
