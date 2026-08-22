@@ -121,3 +121,76 @@ def atomic_write_json(
         raise MemoryWorkspaceError(
             f"无法持久化到 {path}：{exc}。没有回退到临时目录。"
         ) from exc
+
+
+def atomic_write_text(
+    path: Path,
+    text: str,
+    *,
+    backup: bool = True,
+    allow_transient: bool = False,
+) -> None:
+    ensure_safe_write_path(path, allow_transient=allow_transient)
+    directory = path.parent
+    try:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            directory.chmod(0o700)
+        except OSError:
+            pass
+    except OSError as exc:
+        raise MemoryWorkspaceError(f"无法创建本机目录 {directory}：{exc}。") from exc
+    temporary = path.with_name(path.name + ".tmp")
+    backup_path = path.with_name(path.name + ".bak")
+    try:
+        with temporary.open("w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            temporary.chmod(0o600)
+        except OSError:
+            pass
+        if backup and path.exists():
+            shutil.copy2(path, backup_path)
+            try:
+                backup_path.chmod(0o600)
+            except OSError:
+                pass
+        os.replace(temporary, path)
+    except OSError as exc:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise MemoryWorkspaceError(f"无法持久化到 {path}：{exc}。") from exc
+
+
+def write_bytes_once(
+    path: Path,
+    data: bytes,
+    *,
+    allow_transient: bool = False,
+) -> None:
+    """Create an immutable byte file and refuse to replace an existing path."""
+
+    ensure_safe_write_path(path, allow_transient=allow_transient)
+    directory = path.parent
+    try:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            directory.chmod(0o700)
+        except OSError:
+            pass
+        with path.open("xb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            path.chmod(0o600)
+        except OSError:
+            pass
+    except FileExistsError as exc:
+        raise MemoryWorkspaceError(f"不可变来源已存在，拒绝覆盖：{path}") from exc
+    except OSError as exc:
+        raise MemoryWorkspaceError(f"无法保存不可变来源到 {path}：{exc}。") from exc

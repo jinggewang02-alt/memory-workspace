@@ -634,6 +634,12 @@ The executable reference schemas live in `schemas/`. The dependency-free
 `scripts/schema_check.py` validates the bundled examples and the subset of JSON
 Schema keywords used by those files.
 
+The first executable Workspace adapter lives in `scripts/workspace.py`. It
+initializes the recommended layout, captures manual sources without overwriting
+their bytes, emits Operation manifests, and validates source hashes and Wiki
+links. Its command and storage contract are documented in
+`references/workspace-cli.md`.
+
 This draft adds a Workspace manifest, stable Page and Claim identities,
 Snapshot hashes, Operation manifests, privacy classes, and a formal Skill/UI
 boundary. These are forward-compatible targets; existing workspace pages do
