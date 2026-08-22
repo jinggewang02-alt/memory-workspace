@@ -147,7 +147,7 @@ python3 <skill-dir>/scripts/store.py get 实习经历 --index 1 --field 岗位
 | `export [--out FILE]` | 导出为 Markdown |
 | `path` | 打印实际存储路径 |
 
-存储结构详见 [references/store-schema.md](references/store-schema.md)。需要配置 Codex CLI hook 时，读取 [references/codex-hook.md](references/codex-hook.md)。
+存储结构详见 [references/store-schema.md](references/store-schema.md)。设计或实现项目型 Workspace、来源证据链、前端 UI 或跨版本迁移时，读取 [references/data-model.md](references/data-model.md)；当前精确个人事实仍以 `store-schema.md` 和 `store.py` 为准。需要配置 Codex CLI hook 时，读取 [references/codex-hook.md](references/codex-hook.md)。
 
 ## 隐私边界
 
