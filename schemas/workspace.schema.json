@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/workspace.schema.json",
+  "title": "Memory Workspace manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "workspace", "defaults", "profile_memory"],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "created_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "timezone", "review_mode"],
+      "properties": {
+        "language": {
+          "type": "string",
+          "minLength": 2
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_mode": {
+          "enum": ["direct", "proposed_changes"]
+        }
+      }
+    },
+    "profile_memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "provider"],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

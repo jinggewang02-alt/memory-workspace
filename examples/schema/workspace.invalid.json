@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "workspace": {
+    "id": "Not A Slug",
+    "name": "",
+    "created_at": "yesterday"
+  },
+  "defaults": {
+    "language": "z",
+    "timezone": "",
+    "review_mode": "silent-write"
+  },
+  "profile_memory": {
+    "enabled": "yes",
+    "provider": ""
+  }
+}

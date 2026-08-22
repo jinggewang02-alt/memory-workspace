@@ -1,0 +1,40 @@
+{
+  "schema_version": 2,
+  "updated_at": "2026-08-22T10:00:00+08:00",
+  "items": {
+    "contact-email": {
+      "id": "mem-contact-email",
+      "label": "联系邮箱",
+      "type": "single",
+      "value": "person@example.com",
+      "scope": {},
+      "provenance": {
+        "kind": "owner_statement",
+        "source_ref": null,
+        "captured_at": "2026-08-22T10:00:00+08:00"
+      },
+      "verified_at": "2026-08-22T10:00:00+08:00"
+    },
+    "experience": {
+      "id": "mem-experience",
+      "label": "经历",
+      "type": "entries",
+      "value": [
+        {
+          "organization": "Example Organization",
+          "role": "Example Role",
+          "period": "2025.01-2025.06"
+        }
+      ],
+      "scope": {
+        "edition": "example"
+      },
+      "provenance": {
+        "kind": "owner_statement",
+        "source_ref": null,
+        "captured_at": "2026-08-22T10:00:00+08:00"
+      },
+      "verified_at": "2026-08-22T10:00:00+08:00"
+    }
+  }
+}

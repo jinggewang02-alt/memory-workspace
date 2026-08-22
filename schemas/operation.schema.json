@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/operation.schema.json",
+  "title": "Memory Workspace operation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation_id",
+    "type",
+    "status",
+    "requested_at",
+    "actor",
+    "input_refs",
+    "changes",
+    "validation",
+    "approval"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "operation_id": {
+      "type": "string",
+      "pattern": "^op_[A-Za-z0-9_-]+$"
+    },
+    "type": {
+      "enum": [
+        "init",
+        "ingest",
+        "refresh",
+        "capture",
+        "query",
+        "synthesis",
+        "lint",
+        "memory_read",
+        "memory_write"
+      ]
+    },
+    "status": {
+      "enum": ["draft", "proposed", "approved", "applied", "rejected", "failed"]
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/change"
+      }
+    },
+    "validation": {
+      "$ref": "#/$defs/validation"
+    },
+    "approval": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/approval"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "action", "before_hash", "after_hash", "diff_path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "enum": ["create", "update", "delete"]
+        },
+        "before_hash": {
+          "type": ["string", "null"]
+        },
+        "after_hash": {
+          "type": ["string", "null"]
+        },
+        "diff_path": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checks"],
+      "properties": {
+        "status": {
+          "enum": ["pending", "passed", "failed"]
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "decided_at", "actor"],
+      "properties": {
+        "status": {
+          "enum": ["approved", "rejected"]
+        },
+        "decided_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

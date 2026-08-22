@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/profile-memory-v2.schema.json",
+  "title": "Profile Memory store v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "items"],
+  "properties": {
+    "schema_version": {
+      "const": 2
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "items": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/memoryItem"
+      }
+    }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "captured_at"],
+      "properties": {
+        "kind": {
+          "enum": ["owner_statement", "source", "import", "unknown"]
+        },
+        "source_ref": {
+          "type": ["string", "null"]
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "singleItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "type", "value", "scope", "provenance", "verified_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^mem-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "single"
+        },
+        "value": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "verified_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+    "entriesItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "type", "value", "scope", "provenance", "verified_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^mem-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "const": "entries"
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "verified_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+    "memoryItem": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/singleItem"
+        },
+        {
+          "$ref": "#/$defs/entriesItem"
+        }
+      ]
+    }
+  }
+}

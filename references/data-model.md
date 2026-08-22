@@ -94,7 +94,7 @@ and generated indexes, and writes through reviewed operations.
 
 ```text
 workspace/
-├── llm-wiki.yaml
+├── llm-wiki.json
 ├── raw/
 │   └── inbox/
 ├── connected/
@@ -165,7 +165,9 @@ rewritten in place.
 
 ### 6.1 Workspace manifest
 
-`llm-wiki.yaml` identifies the workspace and supported schema version.
+`llm-wiki.json` identifies the workspace and supported schema version. JSON is
+the reference serialization so the local Skill remains dependency-free; other
+implementations MAY expose an equivalent YAML projection.
 
 ```yaml
 schema_version: 1
@@ -627,6 +629,10 @@ connector-specific UI behavior.
 | `wiki/log.md` | Human-readable Activity Log |
 | `scripts/wiki_check.py` | Initial validator |
 | `~/.personal-memory/store.json` | External Profile Memory Store v1 |
+
+The executable reference schemas live in `schemas/`. The dependency-free
+`scripts/schema_check.py` validates the bundled examples and the subset of JSON
+Schema keywords used by those files.
 
 This draft adds a Workspace manifest, stable Page and Claim identities,
 Snapshot hashes, Operation manifests, privacy classes, and a formal Skill/UI

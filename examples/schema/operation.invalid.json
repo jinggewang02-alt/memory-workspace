@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "operation_id": "invalid operation id",
+  "type": "overwrite_everything",
+  "status": "done",
+  "requested_at": "now",
+  "actor": "",
+  "input_refs": "raw/inbox/example.md",
+  "changes": [],
+  "validation": {
+    "status": "unknown",
+    "checks": []
+  },
+  "approval": null
+}
