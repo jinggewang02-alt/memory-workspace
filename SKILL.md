@@ -29,6 +29,33 @@ description: 维护本机优先、以项目为中心的个人知识库，并精�
 - 写入失败时明确说没有成功；不要用口头承诺代替读回或校验。
 - 事实、推断、用户观点和开放问题必须分开；来源范围内没有记录，不代表事件没有发生。
 
+## 首次运行：能力协商
+
+在一个新的 Agent、设备或沙箱中首次读写前，先按实际能力准备环境。不要根据产品名
+写死分支，也不要因为看到了 `SKILL.md` 就假定命令、Python、文件权限或持久存储可用。
+
+1. 解析本 `SKILL.md` 的实际目录，确认 `scripts/`、`schemas/` 和
+   `memory_workspace/` 随 Skill 一起存在。
+2. 找到当前环境已经可用的 Python 启动方式；不得为完成自检而擅自安装软件。
+3. 运行只读能力探针：
+
+```bash
+<python> <skill-dir>/scripts/bootstrap.py --json
+```
+
+4. 按返回状态执行：
+   - `READY`：继续目标工作流，并在首次写入前运行对应的 `doctor`。
+   - `NEEDS_RUNTIME`：报告缺少的运行时；未经授权不得安装。
+   - `NEEDS_PERSISTENT_PATH`：选择或请求明确的持久目录，再重新探测。
+   - `NEEDS_PERMISSION`：只请求报告中的确切目录权限，再重新探测。
+   - `UNSUPPORTED`：停止本地操作，修复 Skill 安装；不得临时拼凑缺失脚本。
+5. 当前环境不能执行探针时，不得声称已经本地保存。只能保持只读，或使用用户已经
+   配置且提供同等操作契约的 API/工具适配器。
+
+探针只检查可观察能力，不创建测试文件，也不能预先证明宿主沙箱已经批准第一次真实
+写入。完整状态协议和降级规则见
+[references/runtime-capabilities.md](references/runtime-capabilities.md)。
+
 ## Workspace 工作流
 
 第一次在一个环境中写入前运行：
