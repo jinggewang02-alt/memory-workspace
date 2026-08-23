@@ -72,9 +72,10 @@ PROJECT_WIKI_TMPL = """[memory-workspace] PROJECT_WIKI
 1. 先排除只是在开发一个通用 Wiki 产品、写示例代码或讨论概念的情况；只有实际操作用户的本地知识库时才继续。
 2. 第一次写入前运行：python3 {workspace} doctor。只写本机持久目录，不回退到项目或 /tmp。
 3. 创建使用 `init`；发现与查询先用 `list --json` / `inspect --json`；明确收录文件时用 `source ingest`。
-4. 写入后必须运行 `check --json`。只在 status=OK 时报告完成。
-5. `source ingest` 只完成不可变收录和来源说明，不代表已经提炼事实或完成综合。
-6. 不覆盖 raw 来源，不保存秘密，不上传或公开真实内容，不伪造尚未实现的连接器、审批或删除命令。
+4. Agent 生成的 Wiki 修改必须先 `operation propose-file` 并展示 Diff；只有用户明确批准后才 `approve` 和 `apply`。
+5. 写入后必须运行 `check --json`。只在 status=OK 时报告完成。
+6. `source ingest` 只完成不可变收录和来源说明，不代表已经提炼事实或完成综合。
+7. 不覆盖 raw 来源，不保存秘密，不上传或公开真实内容，不伪造尚未实现的连接器或自动综合命令。
 
 Workspace CLI：{workspace}"""
 

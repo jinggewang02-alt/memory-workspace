@@ -1,6 +1,6 @@
 # LLM Wiki Data Model
 
-Status: Draft v0.1  
+Status: Draft v0.2
 Updated: 2026-08-22
 
 This document defines the data contract shared by an LLM Wiki workspace, its
@@ -639,6 +639,12 @@ initializes the recommended layout, captures manual sources without overwriting
 their bytes, emits Operation manifests, and validates source hashes and Wiki
 links. Its command and storage contract are documented in
 `references/workspace-cli.md`.
+
+The v0.2 adapter adds a real proposal lifecycle for maintained Markdown pages
+and a disposable JSON read model. Proposal artifacts hold before/after bytes and
+unified diffs until an approved Operation is applied. The derived index is
+rebuilt from canonical files and Operation manifests; it is never a second
+write target. See `references/review-index.md`.
 
 This draft adds a Workspace manifest, stable Page and Claim identities,
 Snapshot hashes, Operation manifests, privacy classes, and a formal Skill/UI

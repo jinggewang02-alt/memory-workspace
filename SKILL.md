@@ -72,17 +72,33 @@ python3 <skill-dir>/scripts/workspace.py check <workspace-id> --json
 
 相同内容重复收录会返回原 Source ID，不创建副本。识别到私钥标记时必须停止。
 
+### 审阅 Agent 生成的 Wiki 修改
+
+Agent 生成或删除 `wiki/projects/`、`topics/`、`entities/`、`syntheses/` 页面时，默认
+不得直接编辑正式文件：
+
+1. 将候选 Markdown 写到任务暂存文件。
+2. 用 `operation propose-file` 创建 Proposal，并传入真实存在的 `--input-ref`。
+3. 用 `operation show` 读取 Diff，向用户展示将修改的目标、依据和主要变化。
+4. 只有用户明确批准后才运行 `approve` 和 `apply`；用户拒绝时运行 `reject`。
+5. Apply 后运行 `check`。哈希过期、暂存内容异常或 Wiki 校验失败时，不得绕过保护。
+
+Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` 和
+`wiki/sources/` 不接受 Proposal 修改。命令与状态机详见
+[references/review-index.md](references/review-index.md)。
+
 ### 查询已有知识
 
-1. 用 `list` / `inspect` 解析 Workspace 的精确路径。
-2. 先读 `wiki/index.md`，再读最小相关项目页和 `wiki/sources/S-*.md`。
+1. 用 `list` / `inspect` 解析 Workspace；先运行 `query <id> <关键词> --json`。
+2. `query` 会重建可丢弃索引。只读取命中结果对应的最小项目页和 Source Note；不要把
+   整个索引或 Workspace 注入上下文。
 3. 回答先给结论；材料性事实指向对应 `[[sources/S-...]]`，并标明推断、用户观点、
    分歧或证据缺口。
 4. 普通问题优先使用已有快照。只有用户要求当前信息，或旧快照会实质影响答案时，
    才进入连接器刷新流程。
 
-当前 CLI MVP 只实现初始化、手动来源收录和检查。连接器刷新、自动综合、proposal
-审批和删除尚未实现；不要伪造这些命令，也不要绕开 Operation 审计直接修改不可变层。
+当前 CLI 已实现初始化、来源收录、审阅式 Wiki 文件变更、索引和本地查询。连接器刷新
+和自动 Claim 综合尚未实现；不要伪造这些命令，也不要绕开 Operation 审计。
 详细命令契约见 [references/workspace-cli.md](references/workspace-cli.md)，证据和 UI
 边界见 [references/data-model.md](references/data-model.md)。
 
@@ -117,6 +133,8 @@ python3 <skill-dir>/scripts/store.py get 快递地址
 ## 完成标准
 
 - Workspace 写入：命令成功，并且随后 `check` 返回 `status: OK`。
+- Agent 生成的 Wiki 修改：Operation 必须经过 `proposed → approved → applied`；除非
+  用户在当前请求中明确批准，否则停在 proposed。
 - Profile Memory 写入：命令成功，并且 `get` 返回值与用户原文逐字一致。
 - 查询：结论与来源、推断、用户观点和缺口边界清楚。
 - 未完成的 MVP 能力：明确报告边界，不用手工伪装成功。

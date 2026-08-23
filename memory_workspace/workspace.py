@@ -230,11 +230,15 @@ def init_workspace(
         changes=changes,
         checks=["workspace-schema", "required-layout"],
     )
+    from .index import rebuild_index
+
+    index_result = rebuild_index(slug, root=root)
     return {
         "workspace_id": slug,
         "name": name.strip(),
         "workspace_path": str(workspace),
         "manifest_path": str(manifest_path),
+        "index_path": index_result["index_path"],
         **operation,
     }
 
@@ -291,12 +295,14 @@ def inspect_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
     workspace, manifest = load_manifest(slug, root=root)
     source_notes = sorted((workspace / "wiki" / "sources").glob("S-*.md"))
     operation_files = sorted((workspace / ".llm-wiki" / "operations").glob("op_*.json"))
+    derived_index = workspace / ".llm-wiki" / "index" / "workspace-index.json"
     return {
         "workspace_id": slug,
         "workspace_path": str(workspace),
         "manifest": manifest,
         "counts": {"sources": len(source_notes), "operations": len(operation_files)},
         "latest_operation": operation_files[-1].stem if operation_files else None,
+        "index": {"exists": derived_index.is_file(), "path": str(derived_index)},
     }
 
 
@@ -487,6 +493,9 @@ def ingest_source(
         changes=changes,
         checks=["content-hash", "source-note", "wiki-links"],
     )
+    from .index import rebuild_index
+
+    index_result = rebuild_index(slug, root=root)
     return {
         "workspace_id": slug,
         "source_id": source_id,
@@ -494,6 +503,7 @@ def ingest_source(
         "content_path": relative_raw,
         "content_hash": content_hash,
         "duplicate": False,
+        "index_path": index_result["index_path"],
         **operation,
     }
 
@@ -578,16 +588,25 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
     checks.append("wiki-links")
 
     operation_files = sorted((workspace / ".llm-wiki" / "operations").glob("op_*.json"))
-    operation_schema = load_json_object(OPERATION_SCHEMA)
+    from .operations import validate_operation_document
+
     for path in operation_files:
         try:
-            operation_errors = validate(load_json_object(path), operation_schema)
-            errors.extend(
-                f"{path.relative_to(workspace)}: {error}" for error in operation_errors
-            )
-        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            validate_operation_document(load_json_object(path))
+        except (OSError, ValueError, json.JSONDecodeError, MemoryWorkspaceError) as exc:
             errors.append(f"{path.relative_to(workspace)}: {exc}")
     checks.append("operation-schema")
+
+    derived_index = workspace / ".llm-wiki" / "index" / "workspace-index.json"
+    if derived_index.is_file():
+        try:
+            from .index import INDEX_SCHEMA
+
+            index_errors = validate(load_json_object(derived_index), load_json_object(INDEX_SCHEMA))
+            errors.extend(f"index: {error}" for error in index_errors)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"index: {exc}")
+    checks.append("derived-index-schema")
 
     if transient_reason(workspace):
         warnings.append("workspace is under a transient directory (allowed only for explicit tests)")
