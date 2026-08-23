@@ -5,8 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /ABSOLUTE/PATH/TO/personal-memory/adapters/codex/on_user_prompt.py",
-            "statusMessage": "个人档案记忆：识别 记/忆 意图",
+            "command": "python3 /ABSOLUTE/PATH/TO/memory-workspace/adapters/codex/on_user_prompt.py",
+            "statusMessage": "Memory Workspace：识别知识库与个人档案意图",
             "timeout": 10
           }
         ]

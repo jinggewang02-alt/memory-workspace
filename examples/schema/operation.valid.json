@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "operation_id": "op_20260822_100000_example",
+  "type": "ingest",
+  "status": "proposed",
+  "requested_at": "2026-08-22T10:00:00+08:00",
+  "actor": "owner_via_agent",
+  "input_refs": ["raw/inbox/example.md"],
+  "changes": [
+    {
+      "path": "wiki/sources/S-001.md",
+      "action": "create",
+      "before_hash": null,
+      "after_hash": "sha256:example",
+      "diff_path": ".llm-wiki/operations/op_20260822_100000_example/001.diff"
+    }
+  ],
+  "validation": {
+    "status": "passed",
+    "checks": ["schema", "links", "source-citations"],
+    "errors": []
+  },
+  "approval": null
+}

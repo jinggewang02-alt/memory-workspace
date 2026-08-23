@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "updated_at": 1721600000,
+  "items": {
+    "contact-email": {
+      "id": "contact email",
+      "label": "",
+      "type": "single",
+      "value": ["person@example.com"],
+      "scope": {},
+      "provenance": {
+        "kind": "guessed",
+        "captured_at": "unknown"
+      },
+      "verified_at": null
+    }
+  }
+}

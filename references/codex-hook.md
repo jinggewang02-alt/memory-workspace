@@ -4,7 +4,7 @@
 
 ## 配置
 
-1. 将整个 `personal-memory` 目录放入用户本机持久目录，例如 `~/.codex/skills/personal-memory`。
+1. 将整个 `memory-workspace` 目录放入用户本机持久目录，例如 `~/.codex/skills/memory-workspace`。
 2. 在 `~/.codex/config.toml` 中启用：
 
    ```toml
@@ -24,6 +24,8 @@
 4. 传入当前 Agent 环境能够读取的任意文件并要求记录个人资料。Agent 应先读取、整理 checklist，确认后保存。
 5. 说“帮我写一段用于校招的自我介绍”或“帮我填写官网个人资料”。即使没有提到“记忆”，Agent 也应按场景召回相关字段。
 6. 说“帮我写一个简历生成器组件”。Agent 应识别为通用代码任务，不读取个人档案。
+7. 说“创建一个项目知识库”或“把这个文件收录进我的 Wiki”。Agent 应使用
+   `workspace.py`，并在写入后运行 `check`。
 
 ## 持久化
 

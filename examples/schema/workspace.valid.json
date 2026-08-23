@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "workspace": {
+    "id": "example-workspace",
+    "name": "Example Workspace",
+    "created_at": "2026-08-22T10:00:00+08:00"
+  },
+  "defaults": {
+    "language": "zh-CN",
+    "timezone": "Asia/Shanghai",
+    "review_mode": "proposed_changes"
+  },
+  "profile_memory": {
+    "enabled": true,
+    "provider": "personal-memory"
+  }
+}
