@@ -37,6 +37,22 @@ python3 <skill-dir>/scripts/workspace.py source ingest \
 
 # Validate manifest, required layout, raw hashes, Wiki links, and operations.
 python3 <skill-dir>/scripts/workspace.py check product-research
+
+# Stage, review, approve, and apply an Agent-authored Wiki page.
+python3 <skill-dir>/scripts/workspace.py operation propose-file \
+  product-research wiki/topics/example.md \
+  --content-file /path/to/candidate.md \
+  --input-ref wiki/sources/S-001.md
+python3 <skill-dir>/scripts/workspace.py operation show \
+  product-research <operation-id>
+python3 <skill-dir>/scripts/workspace.py operation approve \
+  product-research <operation-id>
+python3 <skill-dir>/scripts/workspace.py operation apply \
+  product-research <operation-id>
+
+# Rebuild the disposable UI index and query local knowledge.
+python3 <skill-dir>/scripts/workspace.py index rebuild product-research
+python3 <skill-dir>/scripts/workspace.py query product-research "example"
 ```
 
 Add `--json` after any leaf command for the stable machine-readable envelope:
@@ -71,6 +87,7 @@ Errors use the same envelope with `ok: false` and a human-readable `error`.
 ## Scope of this MVP
 
 This version implements initialization, inspection, structural/integrity
-validation, and manual source capture. Connector refresh, project-page
-synthesis, proposal approval, search indexing, and the frontend are later
-layers built on the same manifests and operation records.
+validation, manual source capture, reviewable Markdown changes, a disposable
+read model, and local query. See `references/review-index.md` for the lifecycle
+and UI contract. Connector refresh, automatic Claim synthesis, and the frontend
+remain later layers built on the same manifests and operation records.

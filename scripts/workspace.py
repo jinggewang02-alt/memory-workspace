@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI for initializing, inspecting, checking, and ingesting Memory Workspaces."""
+"""CLI for capturing, reviewing, indexing, and querying Memory Workspaces."""
 
 from __future__ import annotations
 
@@ -15,7 +15,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from memory_workspace.io import MemoryWorkspaceError  # noqa: E402
-from memory_workspace import workspace  # noqa: E402
+from memory_workspace import index as workspace_index  # noqa: E402
+from memory_workspace import operations, workspace  # noqa: E402
 
 
 def add_json_flag(parser: argparse.ArgumentParser) -> None:
@@ -59,11 +60,74 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("file", type=Path)
     command.add_argument("--title")
     add_json_flag(command)
+
+    operation = sub.add_parser("operation", help="propose, review, and apply Wiki changes")
+    operation_sub = operation.add_subparsers(dest="operation_cmd", required=True)
+
+    command = operation_sub.add_parser("propose-file", help="stage one Markdown change")
+    command.add_argument("workspace_id")
+    command.add_argument("target_path")
+    candidate = command.add_mutually_exclusive_group(required=True)
+    candidate.add_argument("--content-file", type=Path)
+    candidate.add_argument("--delete", action="store_true")
+    command.add_argument("--input-ref", action="append")
+    command.add_argument("--actor", default="owner_via_agent")
+    command.add_argument(
+        "--type",
+        dest="operation_type",
+        choices=("capture", "synthesis", "lint"),
+        default="synthesis",
+    )
+    add_json_flag(command)
+
+    command = operation_sub.add_parser("list", help="list operation summaries")
+    command.add_argument("workspace_id")
+    command.add_argument(
+        "--status",
+        choices=("draft", "proposed", "approved", "applied", "rejected", "failed"),
+    )
+    add_json_flag(command)
+
+    command = operation_sub.add_parser("show", help="show an operation and its diffs")
+    command.add_argument("workspace_id")
+    command.add_argument("operation_id")
+    add_json_flag(command)
+
+    for action in ("approve", "reject"):
+        command = operation_sub.add_parser(action, help=f"{action} a proposed operation")
+        command.add_argument("workspace_id")
+        command.add_argument("operation_id")
+        command.add_argument("--actor", default="owner_via_cli")
+        add_json_flag(command)
+
+    command = operation_sub.add_parser("apply", help="apply an approved operation")
+    command.add_argument("workspace_id")
+    command.add_argument("operation_id")
+    add_json_flag(command)
+
+    index = sub.add_parser("index", help="manage the disposable UI/search index")
+    index_sub = index.add_subparsers(dest="index_cmd", required=True)
+    command = index_sub.add_parser("rebuild", help="rebuild the workspace read model")
+    command.add_argument("workspace_id")
+    add_json_flag(command)
+
+    command = sub.add_parser("query", help="query the rebuilt local index")
+    command.add_argument("workspace_id")
+    command.add_argument("keyword")
+    command.add_argument("--limit", type=int, default=20)
+    command.add_argument("--no-rebuild", action="store_true")
+    add_json_flag(command)
     return parser
 
 
 def command_name(args: argparse.Namespace) -> str:
-    return f"source.{args.source_cmd}" if args.cmd == "source" else args.cmd
+    if args.cmd == "source":
+        return f"source.{args.source_cmd}"
+    if args.cmd == "operation":
+        return f"operation.{args.operation_cmd}"
+    if args.cmd == "index":
+        return f"index.{args.index_cmd}"
+    return args.cmd
 
 
 def run_command(args: argparse.Namespace) -> Any:
@@ -85,6 +149,39 @@ def run_command(args: argparse.Namespace) -> Any:
         return workspace.check_workspace(args.workspace_id)
     if args.cmd == "source" and args.source_cmd == "ingest":
         return workspace.ingest_source(args.workspace_id, args.file, title=args.title)
+    if args.cmd == "operation" and args.operation_cmd == "propose-file":
+        return operations.propose_file(
+            args.workspace_id,
+            args.target_path,
+            content_file=args.content_file,
+            delete=args.delete,
+            input_refs=args.input_ref,
+            actor=args.actor,
+            operation_type=args.operation_type,
+        )
+    if args.cmd == "operation" and args.operation_cmd == "list":
+        return operations.list_operations(args.workspace_id, status=args.status)
+    if args.cmd == "operation" and args.operation_cmd == "show":
+        return operations.show_operation(args.workspace_id, args.operation_id)
+    if args.cmd == "operation" and args.operation_cmd == "approve":
+        return operations.approve_operation(
+            args.workspace_id, args.operation_id, actor=args.actor
+        )
+    if args.cmd == "operation" and args.operation_cmd == "reject":
+        return operations.reject_operation(
+            args.workspace_id, args.operation_id, actor=args.actor
+        )
+    if args.cmd == "operation" and args.operation_cmd == "apply":
+        return operations.apply_operation(args.workspace_id, args.operation_id)
+    if args.cmd == "index" and args.index_cmd == "rebuild":
+        return workspace_index.rebuild_index(args.workspace_id)
+    if args.cmd == "query":
+        return workspace_index.query_index(
+            args.workspace_id,
+            args.keyword,
+            limit=args.limit,
+            rebuild=not args.no_rebuild,
+        )
     raise MemoryWorkspaceError(f"未知命令：{command_name(args)}")
 
 
@@ -149,6 +246,46 @@ def render_text(args: argparse.Namespace, result: Any) -> None:
         else:
             print(f"[mwork] 已收录 {result['source_id']}：{result['content_path']}")
             print(f"operation: {result['operation_id']}")
+    elif name == "operation.propose-file":
+        print(f"[mwork] 已创建 Proposal：{result['operation_id']}")
+        print(f"change: {result['change']['action']} {result['change']['path']}")
+        if result["diff"]:
+            sys.stdout.write(result["diff"])
+    elif name == "operation.list":
+        if not result:
+            print("[mwork] （没有匹配的 Operation）")
+        for item in result:
+            print(
+                f"{item['operation_id']}\t{item['status']}\t"
+                f"{item['type']}\t{item['changes_count']} change(s)"
+            )
+    elif name == "operation.show":
+        operation = result["operation"]
+        print(f"operation_id: {operation['operation_id']}")
+        print(f"status: {operation['status']}")
+        print(f"type: {operation['type']}")
+        for item in result["diffs"]:
+            print(f"\n# {item['path']}")
+            sys.stdout.write(item["diff"])
+    elif name in {"operation.approve", "operation.reject", "operation.apply"}:
+        print(f"[mwork] {result['operation_id']} → {result['status']}")
+        if result.get("index_warning"):
+            print(f"warning: {result['index_warning']}")
+    elif name == "index.rebuild":
+        print(f"[mwork] 已重建索引：{result['index_path']}")
+        print(
+            "counts: "
+            f"projects={result['counts']['projects']} "
+            f"sources={result['counts']['sources']} "
+            f"pages={result['counts']['pages']} "
+            f"operations={result['counts']['operations']}"
+        )
+    elif name == "query":
+        print(f"matches: {result['count']} / {result['total_matches']}")
+        for item in result["results"]:
+            print(f"[{item['type']}] {item['title']} — {item['path']}")
+            if item["snippet"]:
+                print(f"  {item['snippet']}")
 
 
 def main() -> int:
