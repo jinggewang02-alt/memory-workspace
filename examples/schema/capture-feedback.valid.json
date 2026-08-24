@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "feedback_id": "fb_20260824T121000Z_example",
+  "recorded_at": "2026-08-24T12:10:00Z",
+  "actor": "owner",
+  "action": "approved",
+  "candidate_id": "cand_20260824T120500Z_example",
+  "event_id": null,
+  "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "reason_code": null
+}

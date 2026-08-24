@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/memory-policy.schema.json",
+  "title": "Personal adaptive memory policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_id", "created_at", "state", "source_summary", "signals", "rules", "feedback_summary"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "policy_id": {"type": "string", "pattern": "^policy_[A-Za-z0-9_-]+$"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "state": {"const": "draft"},
+    "source_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_count", "conversation_count", "history_event_count", "live_event_count", "positive_episode_count", "unlabeled_episode_count"],
+      "properties": {
+        "event_count": {"type": "integer"},
+        "conversation_count": {"type": "integer"},
+        "history_event_count": {"type": "integer"},
+        "live_event_count": {"type": "integer"},
+        "positive_episode_count": {"type": "integer"},
+        "unlabeled_episode_count": {"type": "integer"}
+      }
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/signal"}
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/rule"}
+    },
+    "feedback_summary": {
+      "type": "object",
+      "additionalProperties": {"type": "integer"}
+    }
+  },
+  "$defs": {
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query_count", "conversation_count"],
+      "properties": {
+        "query_count": {"type": "integer"},
+        "conversation_count": {"type": "integer"}
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "kind", "scope", "minimum_conversations", "minimum_episode_events", "evidence_episode_ids", "explanation"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "kind": {"enum": ["fact", "preference", "decision", "learning"]},
+        "scope": {"enum": ["project", "profile"]},
+        "minimum_conversations": {"type": "integer"},
+        "minimum_episode_events": {"type": "integer"},
+        "evidence_episode_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^ep_[A-Za-z0-9_-]+$"}
+        },
+        "explanation": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

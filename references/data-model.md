@@ -701,6 +701,12 @@ deferred Workers without requiring a named Agent platform, and preserves the
 existing reviewed Workspace/Profile write boundaries. See
 `references/async-capture.md`.
 
+The v0.6 adaptive layer adds versioned live/history events, stable conversation
+Episodes, reviewable personal Policy drafts, separate Candidate evidence,
+append-only feedback, and time-split replay. Historical Query frequency alone
+is not a positive label: the learner only treats Episodes with a later explicit
+canonical save route as positive evidence. See `references/adaptive-policy.md`.
+
 This draft adds a Workspace manifest, stable Page and Claim identities,
 Snapshot hashes, Operation manifests, privacy classes, and a formal Skill/UI
 boundary. These are forward-compatible targets; existing workspace pages do

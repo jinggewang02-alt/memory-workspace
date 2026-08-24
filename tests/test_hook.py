@@ -73,6 +73,36 @@ class CodexHookTests(unittest.TestCase):
             events = Path(directory) / "capture" / "events"
             self.assertFalse(events.exists() and any(events.iterdir()))
 
+    def test_adaptive_mode_observes_unrelated_prompt_without_classifying_it(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            environment = os.environ.copy()
+            environment["MWORK_ASYNC_CAPTURE"] = "adaptive"
+            environment["MWORK_CAPTURE_DIR"] = str(Path(directory) / "capture")
+            environment["MWORK_ALLOW_TRANSIENT"] = "1"
+            output = self.run_hook("解释一下二分查找", environment=environment)
+            self.assertIn("ASYNC_CAPTURE", output)
+            events = list((Path(directory) / "capture" / "events").glob("evt_*.json"))
+            self.assertEqual(len(events), 1)
+            document = json.loads(events[0].read_text(encoding="utf-8"))
+            self.assertEqual(document["schema_version"], 2)
+            self.assertEqual(document["routing"]["direct_route"], "none")
+            self.assertTrue(document["routing"]["capture_eligible"])
+            self.assertFalse((Path(directory) / "capture" / "candidates").exists())
+
+    def test_adaptive_mode_keeps_explicit_save_as_observation_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            environment = os.environ.copy()
+            environment["MWORK_ASYNC_CAPTURE"] = "adaptive"
+            environment["MWORK_CAPTURE_DIR"] = str(Path(directory) / "capture")
+            environment["MWORK_ALLOW_TRANSIENT"] = "1"
+            output = self.run_hook("请记住我的学号是 12345", environment=environment)
+            self.assertIn("REMEMBER", output)
+            self.assertIn("ASYNC_CAPTURE", output)
+            event_path = next((Path(directory) / "capture" / "events").glob("evt_*.json"))
+            document = json.loads(event_path.read_text(encoding="utf-8"))
+            self.assertEqual(document["routing"]["direct_route"], "remember")
+            self.assertFalse(document["routing"]["capture_eligible"])
+
 
 if __name__ == "__main__":
     unittest.main()

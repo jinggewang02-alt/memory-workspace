@@ -2,22 +2,37 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://memory-workspace.dev/schemas/capture-decision.schema.json",
   "title": "Capture candidate review decision",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "candidate_id",
-    "decision",
-    "decided_at",
-    "actor",
-    "target_ref"
+  "oneOf": [
+    {"$ref": "#/$defs/v1"},
+    {"$ref": "#/$defs/v2"}
   ],
-  "properties": {
-    "schema_version": {"const": 1},
-    "candidate_id": {"type": "string", "pattern": "^cand_[A-Za-z0-9_-]+$"},
-    "decision": {"enum": ["approved", "rejected"]},
-    "decided_at": {"type": "string", "format": "date-time"},
-    "actor": {"type": "string", "minLength": 1},
-    "target_ref": {"type": ["string", "null"]}
+  "$defs": {
+    "v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "candidate_id", "decision", "decided_at", "actor", "target_ref"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "candidate_id": {"type": "string", "pattern": "^cand_[A-Za-z0-9_-]+$"},
+        "decision": {"enum": ["approved", "rejected"]},
+        "decided_at": {"type": "string", "format": "date-time"},
+        "actor": {"type": "string", "minLength": 1},
+        "target_ref": {"type": ["string", "null"]}
+      }
+    },
+    "v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "candidate_id", "decision", "decided_at", "actor", "target_ref", "approved_content"],
+      "properties": {
+        "schema_version": {"const": 2},
+        "candidate_id": {"type": "string", "pattern": "^cand_[A-Za-z0-9_-]+$"},
+        "decision": {"enum": ["approved", "rejected"]},
+        "decided_at": {"type": "string", "format": "date-time"},
+        "actor": {"type": "string", "minLength": 1},
+        "target_ref": {"type": ["string", "null"]},
+        "approved_content": {"type": ["string", "null"]}
+      }
+    }
   }
 }

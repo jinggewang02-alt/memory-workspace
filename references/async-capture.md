@@ -29,13 +29,19 @@ pages or `store.json`.
 
 The default root is `~/.memory-workspace/capture`; override it with
 `MWORK_CAPTURE_DIR` only when the destination is a durable local directory.
+In JSON output, top-level `ok` means the command executed successfully;
+`doctor.result.status` separately reports `OK`, `WARNING`, or an unusable path.
 
 ```text
 capture/
 ├── events/                 # immutable raw events
 ├── resolutions/            # one immutable resolution per event
+├── candidates/             # one immutable semantic proposal per Episode
 ├── candidate-decisions/    # one immutable owner decision per Candidate
-└── applications/           # verified single-Writer receipts
+├── applications/           # verified single-Writer receipts
+├── policies/               # immutable draft policies
+├── policy-activations/     # owner activation receipts
+└── feedback/               # append-only review and recall outcomes
 ```
 
 One-file-per-event uses exclusive creation, so concurrent Workers cannot both
@@ -71,11 +77,11 @@ is the portability fallback.
 
 ## Worker path
 
-List and inspect pending events:
+Plan and inspect pending Episodes:
 
 ```bash
-python3 <skill-dir>/scripts/capture.py event list --status pending --json
-python3 <skill-dir>/scripts/capture.py event show <event-id> --json
+python3 <skill-dir>/scripts/capture.py worker plan --json
+python3 <skill-dir>/scripts/capture.py episode show <episode-id> --json
 ```
 
 Use one of four decisions:
@@ -91,10 +97,14 @@ Conservative rule: when uncertain between `session` and a persistent scope, use
 `session`. Do not promote guesses, brainstorming, temporary metrics, or active
 task instructions into Candidates.
 
-Resolve a non-persistent event:
+When `worker plan` returns `feedback_only`, use its `resolution_decision`
+(`session`). `episode resolve` then closes the pending events and records the
+explicit-save or recall feedback automatically; it must not create a Candidate.
+
+Resolve a non-persistent Episode:
 
 ```bash
-python3 <skill-dir>/scripts/capture.py event resolve <event-id> \
+python3 <skill-dir>/scripts/capture.py episode resolve <episode-id> \
   --decision session \
   --reason "Only constrains the current answer" \
   --json
@@ -103,8 +113,9 @@ python3 <skill-dir>/scripts/capture.py event resolve <event-id> \
 Propose a project Candidate:
 
 ```bash
-python3 <skill-dir>/scripts/capture.py event resolve <event-id> \
+python3 <skill-dir>/scripts/capture.py episode resolve <episode-id> \
   --decision project \
+  --kind learning \
   --content "Agent compatibility must not hard-code platform names." \
   --confidence 0.86 \
   --workspace-id memory-workspace \
@@ -116,8 +127,9 @@ Propose a Profile Candidate only for durable cross-project information. Mark
 exact identifiers, addresses, contact data, and similar values sensitive:
 
 ```bash
-python3 <skill-dir>/scripts/capture.py event resolve <event-id> \
+python3 <skill-dir>/scripts/capture.py episode resolve <episode-id> \
   --decision profile \
+  --kind fact \
   --content "<exact owner-provided value>" \
   --profile-key "<unambiguous key>" \
   --confidence 0.98 \
@@ -167,6 +179,8 @@ Reject a Candidate without touching canonical data:
 
 ```bash
 python3 <skill-dir>/scripts/capture.py candidate reject <candidate-id> \
+  --feedback-reason "not durable" \
+  --suppress-similar \
   --actor owner_via_cli \
   --json
 ```
@@ -178,6 +192,7 @@ The Codex hook keeps async capture off by default. Enable one of:
 ```bash
 export MWORK_ASYNC_CAPTURE=signals  # only broad potential-value signals
 export MWORK_ASYNC_CAPTURE=all      # all prompts without a direct Workspace/Profile route
+export MWORK_ASYNC_CAPTURE=adaptive # all prompts as observations; decide later by Episode + Policy
 ```
 
 Optional settings:
@@ -192,7 +207,9 @@ export MWORK_WORKSPACE_ID=<workspace-id>
 to dispatch a background Worker without waiting. Set it to `0` when an external
 daemon or UI consumes the queue.
 
-Other Agent environments should implement the same event/resolution/candidate
+In `adaptive` mode, explicit Workspace/Profile routes are stored as
+observation-only feedback and cannot create another Candidate. Other Agent
+environments should implement the same event/resolution/candidate
 contract rather than copying Codex-specific hook names. If they cannot run
 background work, process pending events on next startup, during idle time, when
 the UI opens the inbox, or through an explicit sync command.
@@ -207,3 +224,6 @@ python3 <skill-dir>/scripts/capture.py cleanup expired --apply --json
 ```
 
 Cleanup does not delete Candidate decisions or application receipts.
+
+History import, draft activation, learned stage patterns, feedback, and
+time-split replay are specified in [adaptive-policy.md](adaptive-policy.md).

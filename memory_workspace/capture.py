@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -25,6 +26,7 @@ EVENT_SCHEMA = SCHEMA_DIR / "capture-event.schema.json"
 RESOLUTION_SCHEMA = SCHEMA_DIR / "capture-resolution.schema.json"
 DECISION_SCHEMA = SCHEMA_DIR / "capture-decision.schema.json"
 APPLICATION_SCHEMA = SCHEMA_DIR / "capture-application.schema.json"
+CANDIDATE_SCHEMA = SCHEMA_DIR / "capture-candidate.schema.json"
 
 EVENT_ID_PATTERN = re.compile(r"^evt_[A-Za-z0-9_-]+$")
 CANDIDATE_ID_PATTERN = re.compile(r"^cand_[A-Za-z0-9_-]+$")
@@ -32,6 +34,9 @@ RESOLUTION_DECISIONS = {"ignore", "session", "project", "profile"}
 CANDIDATE_SCOPES = {"project", "profile"}
 SENSITIVITY_LEVELS = {"normal", "sensitive"}
 REVIEW_DECISIONS = {"approved", "rejected"}
+CANDIDATE_KINDS = {"fact", "preference", "decision", "learning"}
+SOURCE_KINDS = {"live", "history_import"}
+DIRECT_ROUTES = {"none", "workspace", "remember", "recall"}
 
 # The queue is local plaintext staging, not a secret vault. Reject common secret
 # shapes before any bytes are written. Exact personal identifiers such as a UID
@@ -93,8 +98,12 @@ def _paths(root: Path | None = None) -> dict[str, Path]:
         "root": base,
         "events": base / "events",
         "resolutions": base / "resolutions",
+        "candidates": base / "candidates",
         "decisions": base / "candidate-decisions",
         "applications": base / "applications",
+        "feedback": base / "feedback",
+        "policies": base / "policies",
+        "policy_activations": base / "policy-activations",
     }
 
 
@@ -113,7 +122,7 @@ def _resolution_path(event_id: str, *, root: Path | None = None) -> Path:
     return _paths(root)["resolutions"] / f"{event_id}.json"
 
 
-def _candidate_id(event_id: str) -> str:
+def _legacy_candidate_id(event_id: str) -> str:
     _validate_identifier(event_id, EVENT_ID_PATTERN, "event id")
     return "cand_" + event_id.removeprefix("evt_")
 
@@ -121,6 +130,11 @@ def _candidate_id(event_id: str) -> str:
 def _event_id(candidate_id: str) -> str:
     _validate_identifier(candidate_id, CANDIDATE_ID_PATTERN, "candidate id")
     return "evt_" + candidate_id.removeprefix("cand_")
+
+
+def _candidate_path(candidate_id: str, *, root: Path | None = None) -> Path:
+    _validate_identifier(candidate_id, CANDIDATE_ID_PATTERN, "candidate id")
+    return _paths(root)["candidates"] / f"{candidate_id}.json"
 
 
 def _decision_path(candidate_id: str, *, root: Path | None = None) -> Path:
@@ -180,6 +194,68 @@ def _safe_preview(value: str, *, sensitive: bool = False, limit: int = 120) -> s
     return preview[:limit]
 
 
+def _occurred_at(value: str | datetime | None, *, fallback: datetime) -> str:
+    if value is None:
+        return format_datetime(fallback)
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            raise MemoryWorkspaceError("occurred_at 缺少时区。")
+        return format_datetime(value)
+    return format_datetime(parse_datetime(value))
+
+
+def _dedupe_key(
+    *,
+    source_adapter: str,
+    conversation_id: str | None,
+    message_id: str | None,
+    occurred_at: str,
+    user_message: str,
+) -> str:
+    value = "\n".join(
+        (source_adapter, conversation_id or "", message_id or "", occurred_at, user_message)
+    )
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def all_event_documents(*, root: Path | None = None) -> list[dict[str, Any]]:
+    directory = _paths(root)["events"]
+    if not directory.exists():
+        return []
+    documents = [
+        _load_document(path, EVENT_SCHEMA, "capture event")
+        for path in sorted(directory.glob("evt_*.json"))
+    ]
+    return sorted(
+        documents,
+        key=lambda event: (
+            event.get("occurred_at", event["created_at"]),
+            event["event_id"],
+        ),
+    )
+
+
+def _candidate_fingerprint(
+    *, scope: str, kind: str, content: str, workspace_id: str | None, profile_key: str | None
+) -> str:
+    normalized = re.sub(r"\s+", " ", content).strip().casefold()
+    value = "\n".join((scope, kind, workspace_id or "", profile_key or "", normalized))
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _find_candidate_by_fingerprint(
+    fingerprint: str, *, root: Path | None = None
+) -> dict[str, Any] | None:
+    directory = _paths(root)["candidates"]
+    if not directory.exists():
+        return None
+    for path in sorted(directory.glob("cand_*.json")):
+        candidate = _load_document(path, CANDIDATE_SCHEMA, "capture candidate")
+        if candidate["fingerprint"] == fingerprint:
+            return candidate
+    return None
+
+
 def enqueue_event(
     user_message: str,
     *,
@@ -187,6 +263,11 @@ def enqueue_event(
     message_id: str | None = None,
     workspace_id: str | None = None,
     source_agent: str = "unknown",
+    source_adapter: str = "generic-hook",
+    source_kind: str = "live",
+    occurred_at: str | datetime | None = None,
+    direct_route: str = "none",
+    capture_eligible: bool = True,
     assistant_summary: str | None = None,
     retention_days: int = 7,
     root: Path | None = None,
@@ -198,20 +279,57 @@ def enqueue_event(
         raise MemoryWorkspaceError("user message 不能为空。")
     if retention_days < 1 or retention_days > 30:
         raise MemoryWorkspaceError("retention days 必须在 1–30 之间。")
+    if source_kind not in SOURCE_KINDS:
+        raise MemoryWorkspaceError("source kind 必须是 live 或 history_import。")
+    if direct_route not in DIRECT_ROUTES:
+        raise MemoryWorkspaceError("direct route 必须是 none/workspace/remember/recall。")
     _reject_secrets(message, assistant_summary)
 
     created = now_utc()
-    event_id = f"evt_{created.strftime('%Y%m%dT%H%M%SZ')}_{uuid4().hex[:12]}"
+    occurred = _occurred_at(occurred_at, fallback=created)
+    clean_adapter = source_adapter.strip() or "generic-hook"
+    clean_conversation = _optional_text(conversation_id)
+    clean_message_id = _optional_text(message_id)
+    dedupe_key = _dedupe_key(
+        source_adapter=clean_adapter,
+        conversation_id=clean_conversation,
+        message_id=clean_message_id,
+        occurred_at=occurred,
+        user_message=message,
+    )
+    # The content-derived ID keeps the synchronous Hook path O(1) as the queue
+    # grows. It also lets concurrent adapters converge on the same immutable
+    # event without maintaining a mutable index.
+    event_id = f"evt_{dedupe_key}"
+    path = _event_path(event_id, root=root)
+    if path.is_file():
+        existing = _load_document(path, EVENT_SCHEMA, "capture event")
+        return {
+            "event_id": existing["event_id"],
+            "event_path": str(path),
+            "created_at": existing["created_at"],
+            "expires_at": existing["expires_at"],
+            "status": _event_status(existing, root=root),
+            "deduplicated": True,
+        }
     document = {
-        "schema_version": 1,
+        "schema_version": 2,
         "event_id": event_id,
         "created_at": format_datetime(created),
+        "occurred_at": occurred,
         "expires_at": format_datetime(created + timedelta(days=retention_days)),
+        "source_kind": source_kind,
         "source": {
             "agent": source_agent.strip() or "unknown",
-            "conversation_id": _optional_text(conversation_id),
-            "message_id": _optional_text(message_id),
+            "adapter": clean_adapter,
+            "conversation_id": clean_conversation,
+            "message_id": clean_message_id,
             "workspace_id": _optional_text(workspace_id),
+            "dedupe_key": dedupe_key,
+        },
+        "routing": {
+            "direct_route": direct_route,
+            "capture_eligible": bool(capture_eligible),
         },
         "payload": {
             "user_message": message,
@@ -219,14 +337,32 @@ def enqueue_event(
         },
         "privacy": "local_plaintext_staging",
     }
-    path = _event_path(event_id, root=root)
-    _write_document_once(path, document, EVENT_SCHEMA, "capture event")
+    try:
+        _write_document_once(path, document, EVENT_SCHEMA, "capture event")
+    except MemoryWorkspaceError:
+        # A concurrent writer may have won the exclusive create after our
+        # existence check. Return its validated event instead of failing the
+        # user's Query; other I/O errors still propagate.
+        if not path.is_file():
+            raise
+        existing = _load_document(path, EVENT_SCHEMA, "capture event")
+        if existing.get("source", {}).get("dedupe_key") != dedupe_key:
+            raise
+        return {
+            "event_id": existing["event_id"],
+            "event_path": str(path),
+            "created_at": existing["created_at"],
+            "expires_at": existing["expires_at"],
+            "status": _event_status(existing, root=root),
+            "deduplicated": True,
+        }
     return {
         "event_id": event_id,
         "event_path": str(path),
         "created_at": document["created_at"],
         "expires_at": document["expires_at"],
         "status": "pending",
+        "deduplicated": False,
     }
 
 
@@ -245,12 +381,8 @@ def list_events(
         raise MemoryWorkspaceError("event status 必须是 pending/resolved/expired/all。")
     if limit < 1 or limit > 500:
         raise MemoryWorkspaceError("limit 必须在 1–500 之间。")
-    events_dir = _paths(root)["events"]
-    if not events_dir.exists():
-        return []
     result: list[dict[str, Any]] = []
-    for path in sorted(events_dir.glob("evt_*.json")):
-        event = _load_document(path, EVENT_SCHEMA, "capture event")
+    for event in all_event_documents(root=root):
         derived = _event_status(event, root=root)
         if status != "all" and derived != status:
             continue
@@ -259,9 +391,14 @@ def list_events(
             {
                 "event_id": event["event_id"],
                 "created_at": event["created_at"],
+                "occurred_at": event.get("occurred_at", event["created_at"]),
                 "expires_at": event["expires_at"],
                 "status": derived,
+                "source_kind": event.get("source_kind", "live"),
                 "source": event["source"],
+                "routing": event.get(
+                    "routing", {"direct_route": "none", "capture_eligible": True}
+                ),
                 "message_preview": _safe_preview(message),
                 "message_length": len(message),
             }
@@ -293,6 +430,12 @@ def resolve_event(
     sensitivity: str = "normal",
     workspace_id: str | None = None,
     profile_key: str | None = None,
+    kind: str | None = None,
+    episode_id: str | None = None,
+    evidence_event_ids: list[str] | None = None,
+    policy_version: str | None = None,
+    policy_rule: str | None = None,
+    trigger_phase: str | None = None,
     root: Path | None = None,
 ) -> dict[str, Any]:
     """Resolve an event once. Project/profile decisions create review candidates only."""
@@ -309,8 +452,17 @@ def resolve_event(
     if resolution_path.exists():
         raise MemoryWorkspaceError(f"event 已被处理，拒绝重复解析：{event_id}")
 
-    candidate: dict[str, Any] | None = None
+    evidence_ids = list(dict.fromkeys(evidence_event_ids or [event_id]))
+    if event_id not in evidence_ids:
+        evidence_ids.append(event_id)
+    for evidence_id in evidence_ids:
+        _load_document(_event_path(evidence_id, root=root), EVENT_SCHEMA, "capture event")
+
+    candidate_id: str | None = None
+    deduplicated = False
     if decision in CANDIDATE_SCOPES:
+        if event.get("schema_version") == 2 and not event["routing"]["capture_eligible"]:
+            raise MemoryWorkspaceError("该事件已走明确写入/召回路径，不得重复生成 Candidate。")
         clean_content = (content or "").strip()
         if not clean_content:
             raise MemoryWorkspaceError("project/profile candidate 必须提供 content。")
@@ -318,49 +470,96 @@ def resolve_event(
             raise MemoryWorkspaceError("confidence 必须是 0–1 之间的数字。")
         if sensitivity not in SENSITIVITY_LEVELS:
             raise MemoryWorkspaceError("sensitivity 必须是 normal 或 sensitive。")
+        clean_kind = kind or ("decision" if decision == "project" else "fact")
+        if clean_kind not in CANDIDATE_KINDS:
+            raise MemoryWorkspaceError("candidate kind 必须是 fact/preference/decision/learning。")
         _reject_secrets(clean_content)
-        candidate = {
-            "candidate_id": _candidate_id(event_id),
-            "scope": decision,
-            "content": clean_content,
-            "confidence": confidence,
-            "sensitivity": sensitivity,
-            "proposed_at": format_datetime(now_utc()),
-            "proposed_by": resolved_by.strip() or "async_worker",
-            "target_hint": {
-                "workspace_id": _optional_text(workspace_id),
-                "profile_key": _optional_text(profile_key),
-            },
-        }
-    elif any(value is not None for value in (content, confidence, workspace_id, profile_key)):
+        fingerprint = _candidate_fingerprint(
+            scope=decision,
+            kind=clean_kind,
+            content=clean_content,
+            workspace_id=_optional_text(workspace_id),
+            profile_key=_optional_text(profile_key),
+        )
+        existing = _find_candidate_by_fingerprint(fingerprint, root=root)
+        if existing is not None:
+            candidate_id = existing["candidate_id"]
+            deduplicated = True
+        else:
+            proposed = now_utc()
+            candidate_id = f"cand_{proposed.strftime('%Y%m%dT%H%M%SZ')}_{uuid4().hex[:12]}"
+            candidate = {
+                "schema_version": 1,
+                "candidate_id": candidate_id,
+                "fingerprint": fingerprint,
+                "trigger_event_id": event_id,
+                "episode_id": _optional_text(episode_id),
+                "evidence_event_ids": evidence_ids,
+                "scope": decision,
+                "kind": clean_kind,
+                "content": clean_content,
+                "confidence": confidence,
+                "sensitivity": sensitivity,
+                "proposed_at": format_datetime(proposed),
+                "proposed_by": resolved_by.strip() or "async_worker",
+                "policy_version": _optional_text(policy_version),
+                "policy_rule": _optional_text(policy_rule),
+                "trigger_phase": _optional_text(trigger_phase),
+                "target_hint": {
+                    "workspace_id": _optional_text(workspace_id),
+                    "profile_key": _optional_text(profile_key),
+                },
+            }
+            _write_document_once(
+                _candidate_path(candidate_id, root=root),
+                candidate,
+                CANDIDATE_SCHEMA,
+                "capture candidate",
+            )
+    elif any(value is not None for value in (content, confidence, workspace_id, profile_key, kind)):
         raise MemoryWorkspaceError("ignore/session 解析不得携带 candidate 字段。")
 
     document = {
-        "schema_version": 1,
+        "schema_version": 2,
         "event_id": event_id,
+        "episode_id": _optional_text(episode_id),
+        "evidence_event_ids": evidence_ids,
         "resolved_at": format_datetime(now_utc()),
         "resolved_by": resolved_by.strip() or "async_worker",
         "decision": decision,
         "reason": clean_reason,
-        "candidate": candidate,
+        "policy_version": _optional_text(policy_version),
+        "trigger_phase": _optional_text(trigger_phase),
+        "candidate_id": candidate_id,
+        "deduplicated": deduplicated,
     }
     _write_document_once(resolution_path, document, RESOLUTION_SCHEMA, "capture resolution")
     return {
         "event_id": event_id,
         "decision": decision,
-        "candidate_id": candidate["candidate_id"] if candidate else None,
+        "candidate_id": candidate_id,
+        "deduplicated": deduplicated,
         "resolution_path": str(resolution_path),
     }
 
 
 def _candidate_bundle(candidate_id: str, *, root: Path | None = None) -> dict[str, Any]:
-    event_id = _event_id(candidate_id)
-    resolution = _load_document(
-        _resolution_path(event_id, root=root), RESOLUTION_SCHEMA, "capture resolution"
-    )
-    candidate = resolution.get("candidate")
-    if not isinstance(candidate, dict) or candidate.get("candidate_id") != candidate_id:
-        raise MemoryWorkspaceError(f"未找到 candidate：{candidate_id}")
+    candidate_path = _candidate_path(candidate_id, root=root)
+    if candidate_path.is_file():
+        candidate = _load_document(candidate_path, CANDIDATE_SCHEMA, "capture candidate")
+        resolution = _load_document(
+            _resolution_path(candidate["trigger_event_id"], root=root),
+            RESOLUTION_SCHEMA,
+            "capture resolution",
+        )
+    else:
+        event_id = _event_id(candidate_id)
+        resolution = _load_document(
+            _resolution_path(event_id, root=root), RESOLUTION_SCHEMA, "capture resolution"
+        )
+        candidate = resolution.get("candidate")
+        if not isinstance(candidate, dict) or candidate.get("candidate_id") != candidate_id:
+            raise MemoryWorkspaceError(f"未找到 candidate：{candidate_id}")
     decision_path = _decision_path(candidate_id, root=root)
     application_path = _application_path(candidate_id, root=root)
     review = (
@@ -395,15 +594,27 @@ def list_candidates(
         raise MemoryWorkspaceError("candidate status 必须是 proposed/approved/rejected/applied/all。")
     if limit < 1 or limit > 500:
         raise MemoryWorkspaceError("limit 必须在 1–500 之间。")
-    directory = _paths(root)["resolutions"]
-    if not directory.exists():
-        return []
     result: list[dict[str, Any]] = []
-    for path in sorted(directory.glob("evt_*.json")):
-        resolution = _load_document(path, RESOLUTION_SCHEMA, "capture resolution")
-        candidate = resolution.get("candidate")
-        if not isinstance(candidate, dict):
-            continue
+    candidates: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    candidate_directory = _paths(root)["candidates"]
+    if candidate_directory.exists():
+        for path in sorted(candidate_directory.glob("cand_*.json")):
+            candidate = _load_document(path, CANDIDATE_SCHEMA, "capture candidate")
+            resolution = _load_document(
+                _resolution_path(candidate["trigger_event_id"], root=root),
+                RESOLUTION_SCHEMA,
+                "capture resolution",
+            )
+            candidates.append((candidate, resolution))
+    legacy_directory = _paths(root)["resolutions"]
+    if legacy_directory.exists():
+        for path in sorted(legacy_directory.glob("evt_*.json")):
+            resolution = _load_document(path, RESOLUTION_SCHEMA, "capture resolution")
+            candidate = resolution.get("candidate")
+            if isinstance(candidate, dict):
+                candidates.append((candidate, resolution))
+
+    for candidate, resolution in candidates:
         bundle = _candidate_bundle(candidate["candidate_id"], root=root)
         if status != "all" and bundle["status"] != status:
             continue
@@ -411,6 +622,7 @@ def list_candidates(
             {
                 "candidate_id": candidate["candidate_id"],
                 "scope": candidate["scope"],
+                "kind": candidate.get("kind", "fact" if candidate["scope"] == "profile" else "decision"),
                 "content_preview": _safe_preview(
                     candidate["content"],
                     sensitive=candidate["sensitivity"] == "sensitive",
@@ -422,6 +634,11 @@ def list_candidates(
                 "proposed_by": candidate["proposed_by"],
                 "target_hint": candidate["target_hint"],
                 "event_id": resolution["event_id"],
+                "episode_id": candidate.get("episode_id"),
+                "evidence_count": len(candidate.get("evidence_event_ids", [resolution["event_id"]])),
+                "policy_version": candidate.get("policy_version"),
+                "policy_rule": candidate.get("policy_rule"),
+                "trigger_phase": candidate.get("trigger_phase"),
                 "status": bundle["status"],
                 "reason": resolution["reason"],
             }
@@ -441,6 +658,9 @@ def decide_candidate(
     decision: str,
     actor: str,
     target_ref: str | None = None,
+    edited_content: str | None = None,
+    feedback_reason: str | None = None,
+    suppress_similar: bool = False,
     root: Path | None = None,
 ) -> dict[str, Any]:
     bundle = _candidate_bundle(candidate_id, root=root)
@@ -452,21 +672,67 @@ def decide_candidate(
     if not clean_actor:
         raise MemoryWorkspaceError("actor 不能为空。")
     clean_target = _optional_text(target_ref)
+    clean_edited = _optional_text(edited_content)
     if decision == "approved" and clean_target is None:
         raise MemoryWorkspaceError("批准 candidate 时必须明确 target-ref。")
+    if decision == "rejected" and clean_edited is not None:
+        raise MemoryWorkspaceError("拒绝 candidate 时不得提供 edited-content。")
     if decision == "approved":
         _validate_approval_target(bundle["candidate"], clean_target)
+        _reject_secrets(clean_edited)
     document = {
-        "schema_version": 1,
+        "schema_version": 2,
         "candidate_id": candidate_id,
         "decision": decision,
         "decided_at": format_datetime(now_utc()),
         "actor": clean_actor,
         "target_ref": clean_target,
+        "approved_content": (
+            (clean_edited or bundle["candidate"]["content"])
+            if decision == "approved"
+            else None
+        ),
     }
     path = _decision_path(candidate_id, root=root)
     _write_document_once(path, document, DECISION_SCHEMA, "candidate decision")
-    return {"candidate_id": candidate_id, "status": decision, "decision_path": str(path)}
+    from .feedback import record_feedback
+
+    feedback_paths = []
+    recorded = record_feedback(
+        action=decision,
+        actor=clean_actor,
+        candidate_id=candidate_id,
+        fingerprint=bundle["candidate"].get("fingerprint"),
+        reason_code=feedback_reason,
+        root=root,
+    )
+    feedback_paths.append(recorded["feedback_path"])
+    if clean_edited is not None:
+        edited = record_feedback(
+            action="edited",
+            actor=clean_actor,
+            candidate_id=candidate_id,
+            fingerprint=bundle["candidate"].get("fingerprint"),
+            reason_code=feedback_reason or "owner_edited_candidate",
+            root=root,
+        )
+        feedback_paths.append(edited["feedback_path"])
+    if suppress_similar:
+        suppressed = record_feedback(
+            action="suppress_similar",
+            actor=clean_actor,
+            candidate_id=candidate_id,
+            fingerprint=bundle["candidate"].get("fingerprint"),
+            reason_code=feedback_reason or "owner_suppressed_similar",
+            root=root,
+        )
+        feedback_paths.append(suppressed["feedback_path"])
+    return {
+        "candidate_id": candidate_id,
+        "status": decision,
+        "decision_path": str(path),
+        "feedback_paths": feedback_paths,
+    }
 
 
 def _validate_approval_target(candidate: dict[str, Any], target_ref: str) -> None:

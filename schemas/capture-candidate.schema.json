@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/capture-candidate.schema.json",
+  "title": "Adaptive capture candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "candidate_id", "fingerprint", "trigger_event_id", "episode_id", "evidence_event_ids", "scope", "kind", "content", "confidence", "sensitivity", "proposed_at", "proposed_by", "policy_version", "policy_rule", "trigger_phase", "target_hint"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "candidate_id": {"type": "string", "pattern": "^cand_[A-Za-z0-9_-]+$"},
+    "fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "trigger_event_id": {"type": "string", "pattern": "^evt_[A-Za-z0-9_-]+$"},
+    "episode_id": {"type": ["string", "null"]},
+    "evidence_event_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^evt_[A-Za-z0-9_-]+$"}},
+    "scope": {"enum": ["project", "profile"]},
+    "kind": {"enum": ["fact", "preference", "decision", "learning"]},
+    "content": {"type": "string", "minLength": 1},
+    "confidence": {"type": "number"},
+    "sensitivity": {"enum": ["normal", "sensitive"]},
+    "proposed_at": {"type": "string", "format": "date-time"},
+    "proposed_by": {"type": "string", "minLength": 1},
+    "policy_version": {"type": ["string", "null"]},
+    "policy_rule": {"type": ["string", "null"]},
+    "trigger_phase": {"type": ["string", "null"]},
+    "target_hint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workspace_id", "profile_key"],
+      "properties": {
+        "workspace_id": {"type": ["string", "null"]},
+        "profile_key": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

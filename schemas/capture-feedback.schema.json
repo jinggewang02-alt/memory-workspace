@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/capture-feedback.schema.json",
+  "title": "Adaptive capture feedback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "feedback_id", "recorded_at", "actor", "action", "candidate_id", "event_id", "fingerprint", "reason_code"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "feedback_id": {"type": "string", "pattern": "^fb_[A-Za-z0-9_-]+$"},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "actor": {"type": "string", "minLength": 1},
+    "action": {"enum": ["approved", "rejected", "edited", "suppress_similar", "explicit_save_followup", "recalled", "forgotten_complaint"]},
+    "candidate_id": {"type": ["string", "null"]},
+    "event_id": {"type": ["string", "null"]},
+    "fingerprint": {"type": ["string", "null"]},
+    "reason_code": {"type": ["string", "null"]}
+  }
+}

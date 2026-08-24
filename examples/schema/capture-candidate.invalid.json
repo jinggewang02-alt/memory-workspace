@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "candidate_id": "bad",
+  "scope": "session",
+  "content": "invalid"
+}

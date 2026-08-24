@@ -1,6 +1,6 @@
 ---
 name: memory-workspace
-description: 维护本机优先、以项目为中心的个人知识库，并精确保存和召回跨项目个人档案。用户要求创建或检查 Workspace/Wiki/知识库、收录文件或证据、查询已有项目知识、维护来源链，或明确要求记住、修改、调用个人资料时使用；为本人创建简历、自我介绍、申请材料或填写表单而需要个人事实时也使用。还支持把潜在知识轻量入队，交给后台 Worker 或 Subagent 异步生成待审候选。项目证据进入 Workspace，邮箱、学号、地址和结构化经历等精确事实进入 Profile Memory；两者不得静默混用。
+description: 维护本机优先、以项目为中心的个人知识库，并精确保存和召回跨项目个人档案。用户要求创建或检查 Workspace/Wiki/知识库、收录文件或证据、查询已有项目知识、维护来源链，或明确要求记住、修改、调用个人资料时使用；为本人创建简历、自我介绍、申请材料或填写表单而需要个人事实时也使用。还支持把本地历史或实时 Query 轻量入队，从后来明确保存的会话轨迹学习个人 Policy，再由后台 Worker 或 Subagent 按 Episode 异步生成待审候选。项目证据进入 Workspace，邮箱、学号、地址和结构化经历等精确事实进入 Profile Memory；两者不得静默混用。
 ---
 
 # Memory Workspace
@@ -107,20 +107,25 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 异步捕获用于降低当前 Query 的模型等待时间，不得改变“少持久化、先审阅”的边界：
 
 1. 主 Agent 先完成用户任务；同步链路最多执行一次本地 `event enqueue`，不得调用模型
-   做捕获分类。
+   做捕获分类。`adaptive` 模式只观察，不在当前 Query 中决定是否持久化。
 2. 只有环境明确支持回答后仍能存活的后台任务或 Subagent 时才立即派发；否则保留
    pending，由下次启动、空闲任务、UI 或手动 `capture.py` 处理。
-3. Worker 将事件解析为 `ignore`、`session`、`project` 或 `profile`。只有后两者产生
-   Candidate；Worker 不得直接写正式 Workspace 或 Profile Memory。
+3. Worker 先按 conversation 和时间间隔聚合 Episode，再解析为 `ignore`、`session`、
+   `project` 或 `profile`。只有后两者产生 Candidate；一个 Episode 默认只产生一个
+   Candidate，Worker 不得直接写正式 Workspace 或 Profile Memory。
 4. Candidate 由用户批准后，单一 Writer 才能调用现有 `workspace.py` / `store.py`；完成
    读回或 Workspace check 后再 `mark-applied`。
 5. 异步队列保存本机明文暂存，默认关闭，拒绝密码、Token、Cookie、私钥等秘密，并
    应定期清理过期原始事件。
+6. 历史学习只把后来出现明确 Workspace/Profile 保存行为的 Episode 当正样本；普通
+   高频问法不是正样本。Policy 先生成 draft，必须由用户激活；拒绝和“抑制相似项”
+   会让下一版 Policy 更保守。
 
 不得把“对当前回答有用”当成“应长期捕获”。一次性操作指令、普通问答、当前输出反馈、
 未验证猜测和设计探索默认 `ignore` 或 `session`。只有跨轮次仍有价值、相对稳定、归属清楚
 且值得用户审阅的项目结论或个人事实才生成 Candidate。完整协议、命令和跨 Agent 降级见
-[references/async-capture.md](references/async-capture.md)。
+[references/async-capture.md](references/async-capture.md)；历史导入、Episode、个人 Policy、
+反馈和离线回放见 [references/adaptive-policy.md](references/adaptive-policy.md)。
 
 ## Profile Memory 工作流
 

@@ -167,9 +167,14 @@ class CaptureQueueCliTests(unittest.TestCase):
             candidate_id,
             "--target-ref",
             "workspace:memory-workspace/wiki/projects/memory-workspace/decisions.md",
+            "--edited-content",
+            "Compatibility should use capability detection instead of hard-coded platform names.",
+            "--feedback-reason",
+            "owner clarified wording",
             "--json",
         )["result"]
         self.assertEqual(approved["status"], "approved")
+        self.assertEqual(len(approved["feedback_paths"]), 2)
         self.assertEqual(
             self.result_json("candidate", "list", "--status", "approved", "--json")[
                 "result"
@@ -188,6 +193,7 @@ class CaptureQueueCliTests(unittest.TestCase):
         self.assertEqual(applied["status"], "applied")
         bundle = self.result_json("candidate", "show", candidate_id, "--json")["result"]
         self.assertEqual(bundle["status"], "applied")
+        self.assertIn("capability detection", bundle["review"]["approved_content"])
         self.assertIn("workspace check OK", bundle["application"]["verification"])
 
     def test_secret_is_rejected_before_any_event_file_is_written(self) -> None:

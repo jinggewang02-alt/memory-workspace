@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "candidate_id": "cand_20260824T120500Z_example",
+  "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "trigger_event_id": "evt_20260824T120000Z_example",
+  "episode_id": "ep_example",
+  "evidence_event_ids": ["evt_20260824T120000Z_example"],
+  "scope": "project",
+  "kind": "learning",
+  "content": "Protocol design separates model choice from deterministic validation.",
+  "confidence": 0.9,
+  "sensitivity": "normal",
+  "proposed_at": "2026-08-24T12:05:00Z",
+  "proposed_by": "async-worker",
+  "policy_version": "policy_example",
+  "policy_rule": "learning_synthesis",
+  "trigger_phase": "synthesize",
+  "target_hint": {"workspace_id": "example-project", "profile_key": null}
+}
