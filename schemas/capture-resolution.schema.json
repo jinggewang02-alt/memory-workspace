@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/capture-resolution.schema.json",
+  "title": "Asynchronous capture resolution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "resolved_at",
+    "resolved_by",
+    "decision",
+    "reason",
+    "candidate"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "event_id": {"type": "string", "pattern": "^evt_[A-Za-z0-9_-]+$"},
+    "resolved_at": {"type": "string", "format": "date-time"},
+    "resolved_by": {"type": "string", "minLength": 1},
+    "decision": {"enum": ["ignore", "session", "project", "profile"]},
+    "reason": {"type": "string", "minLength": 1},
+    "candidate": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/candidate"}
+      ]
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "scope",
+        "content",
+        "confidence",
+        "sensitivity",
+        "proposed_at",
+        "proposed_by",
+        "target_hint"
+      ],
+      "properties": {
+        "candidate_id": {"type": "string", "pattern": "^cand_[A-Za-z0-9_-]+$"},
+        "scope": {"enum": ["project", "profile"]},
+        "content": {"type": "string", "minLength": 1},
+        "confidence": {"type": "number"},
+        "sensitivity": {"enum": ["normal", "sensitive"]},
+        "proposed_at": {"type": "string", "format": "date-time"},
+        "proposed_by": {"type": "string", "minLength": 1},
+        "target_hint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["workspace_id", "profile_key"],
+          "properties": {
+            "workspace_id": {"type": ["string", "null"]},
+            "profile_key": {"type": ["string", "null"]}
+          }
+        }
+      }
+    }
+  }
+}

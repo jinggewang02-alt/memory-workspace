@@ -27,6 +27,25 @@
 7. 说“创建一个项目知识库”或“把这个文件收录进我的 Wiki”。Agent 应使用
    `workspace.py`，并在写入后运行 `check`。
 
+## 可选异步候选捕获
+
+异步捕获默认关闭。开启后，Hook 只做本地事件入队，不在用户 Query 的关键链路运行
+模型分类：
+
+```bash
+export MWORK_ASYNC_CAPTURE=signals
+export MWORK_CAPTURE_RETENTION_DAYS=7
+export MWORK_ASYNC_CAPTURE_HINT=1
+```
+
+- `signals`：只把可能具有跨轮次价值的非显式记忆消息入队；
+- `all`：把所有没有明确 Workspace/Profile 路由的消息入队，隐私和存储成本更高；
+- `off`：默认值，不留存异步事件；
+- `MWORK_ASYNC_CAPTURE_HINT=0`：只入队，不向 Agent 注入后台派发提示，适合外部 Worker/UI。
+
+显式 Workspace/Profile 写入和召回继续走现有流程，不重复进入异步队列。完整 Worker、Candidate
+审阅和跨 Agent 降级协议见 [async-capture.md](async-capture.md)。
+
 ## 持久化
 
 默认档案是 `~/.personal-memory/store.json`。配置后运行：

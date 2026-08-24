@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "candidate_id": "cand_20260824T120000Z_example",
+  "applied_at": "2026-08-24T12:03:00Z",
+  "actor": "owner_via_agent",
+  "target_ref": "workspace:example-project/wiki/projects/example/decisions.md",
+  "verification": "Workspace check OK"
+}

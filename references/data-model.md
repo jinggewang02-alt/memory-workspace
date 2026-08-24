@@ -1,7 +1,7 @@
 # LLM Wiki Data Model
 
-Status: Draft v0.2
-Updated: 2026-08-22
+Status: Draft v0.3
+Updated: 2026-08-24
 
 This document defines the data contract shared by an LLM Wiki workspace, its
 agent Skill, and its user interface. It extracts the reusable model from the
@@ -36,6 +36,7 @@ The model MUST support:
 - exact, lossless personal facts that can be recalled across workspaces;
 - explicit source scope, capture time, coverage, and uncertainty;
 - reviewable agent changes for a frontend UI;
+- non-blocking capture events and reviewable background candidates;
 - local-first storage and safe public export.
 
 The model MUST NOT treat the Wiki as a password manager or secret vault.
@@ -48,6 +49,7 @@ There are two storage scopes:
 ```text
 User
 ├── Profile Memory Store             cross-workspace, exact personal facts
+├── Capture Queue                    expiring events and reviewed candidates
 └── Workspaces[]                     one private knowledge environment each
     ├── Projects[]
     ├── Sources[] → Snapshots[]
@@ -86,6 +88,8 @@ views and MUST be rebuildable.
 | Source authorization | YAML under `config/` | Explicit mutation only |
 | Search/UI index | SQLite, JSON, or another generated cache | Derived and disposable |
 | Agent proposal | Operation manifest plus file diff | Immutable after proposal |
+| Async capture event | Immutable local JSON event | Expiring staging |
+| Async resolution and review | Immutable JSON resolution/receipt | Append-only audit |
 
 The frontend MUST NOT become a second source of truth. It reads canonical files
 and generated indexes, and writes through reviewed operations.
@@ -504,6 +508,43 @@ operations. Operation manifests are the machine-readable audit record. The log
 MUST NOT contain credentials, full sensitive personal values, or copied source
 dumps.
 
+### 6.12 Async Capture Event and Candidate
+
+An Async Capture Event removes semantic memory classification from the user's
+critical path. Enqueue performs only a local write; it does not mean the content
+should be persisted.
+
+```json
+{
+  "schema_version": 1,
+  "event_id": "evt_20260824T120000Z_example",
+  "created_at": "2026-08-24T12:00:00Z",
+  "expires_at": "2026-08-31T12:00:00Z",
+  "source": {
+    "agent": "example-agent",
+    "conversation_id": "opaque-conversation-id",
+    "message_id": null,
+    "workspace_id": "example-project"
+  },
+  "payload": {
+    "user_message": "Use a platform-neutral compatibility layer.",
+    "assistant_summary": null
+  },
+  "privacy": "local_plaintext_staging"
+}
+```
+
+A Worker resolves each event exactly once as `ignore`, `session`, `project`, or
+`profile`. Only `project` and `profile` create a Candidate. A Candidate is not a
+ChangeSet and MUST NOT modify canonical data. It becomes writable only after a
+separate owner decision identifies the target. A single Writer then uses the
+existing Workspace Operation or Profile Memory workflow and records a verified
+application receipt.
+
+The queue MUST remain optional, local, expiring, and independent of a particular
+Agent's Subagent API. Environments without durable background execution process
+pending events on a later startup, idle cycle, UI visit, or explicit sync.
+
 ## 7. Relationships
 
 ```text
@@ -515,6 +556,8 @@ Project ──has──> Personal Authoring ──supports──> Owner View
 Task ──selectively reads──> Profile Memory Item
 Operation ──proposes/applies──> Canonical files
 UI Index ──derives from──> Canonical files and Operation manifests
+Capture Event ──resolves to──> ignore / session / Candidate
+Approved Candidate ──routes through──> single Writer and Operation/Profile workflow
 ```
 
 ## 8. Operation semantics
@@ -595,6 +638,9 @@ An implementation conforming to this specification MUST validate at least:
 10. Generated UI/search indexes can be deleted and rebuilt.
 11. Public export contains no private storage layers or real external IDs.
 12. Prohibited secrets are rejected.
+13. Event enqueue does not write canonical Workspace or Profile data.
+14. A Candidate cannot be marked applied without an owner decision and a
+    canonical verification receipt.
 
 ## 11. Skill and UI contract boundary
 
@@ -610,6 +656,9 @@ UI owns presentation, navigation, review, and user intent capture.
 | Build disposable index | Provides or triggers | Consumes |
 | Browse projects and graph | Supplies data | Owns experience |
 | Profile Memory exact recall | Selective adapter read | Shows only requested fields |
+| Queue potential captures | Enqueues and resolves | Shows pending/review states |
+| Approve/reject Candidate | Enforces transition | Captures explicit decision |
+| Apply approved Candidate | Single Writer through canonical workflow | Never writes directly |
 
 The first implementation SHOULD stabilize this contract before adding
 connector-specific UI behavior.
@@ -645,6 +694,12 @@ and a disposable JSON read model. Proposal artifacts hold before/after bytes and
 unified diffs until an approved Operation is applied. The derived index is
 rebuilt from canonical files and Operation manifests; it is never a second
 write target. See `references/review-index.md`.
+
+The v0.3 adapter adds an optional durable capture queue and Candidate inbox. It
+keeps model classification outside the current Query, supports background or
+deferred Workers without requiring a named Agent platform, and preserves the
+existing reviewed Workspace/Profile write boundaries. See
+`references/async-capture.md`.
 
 This draft adds a Workspace manifest, stable Page and Claim identities,
 Snapshot hashes, Operation manifests, privacy classes, and a formal Skill/UI

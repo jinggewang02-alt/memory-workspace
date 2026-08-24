@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "candidate_id": "cand_20260824T120000Z_example",
+  "decision": "approved",
+  "decided_at": "2026-08-24T12:02:00Z",
+  "actor": "owner_via_cli",
+  "target_ref": "workspace:example-project/wiki/projects/example/decisions.md"
+}
