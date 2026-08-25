@@ -154,6 +154,19 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 [references/async-capture.md](references/async-capture.md)；历史导入、Episode、个人 Policy、
 反馈和离线回放见 [references/adaptive-policy.md](references/adaptive-policy.md)。
 
+### 本地候选审阅台
+
+环境有浏览器且用户要查看或处理待审候选时，可以启动最小本地 UI：
+
+```bash
+python3 <skill-dir>/scripts/ui.py
+```
+
+它只监听本机，展示候选、判断原因和脱敏证据，并将批准/忽略操作交回现有 Capture
+审阅契约；它不直接修改正式 Workspace 或 Profile Memory。新环境仍须先完成能力探针，
+无浏览器或不能保持本地进程时继续使用 `scripts/capture.py`，不得为 UI 擅自安装运行时。
+详细边界见 [references/local-review-inbox.md](references/local-review-inbox.md)。
+
 ## Profile Memory 工作流
 
 写入前先运行：

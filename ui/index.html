@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Memory Workspace</title>
+    <link rel="stylesheet" href="/app.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="/" aria-label="Memory Workspace 首页">
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <span>Memory Workspace</span>
+        </a>
+        <div class="local-pill"><span class="status-dot"></span>仅在本机运行</div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="page-title">
+          <p class="eyebrow">REVIEW INBOX</p>
+          <h1 id="page-title">让重要的内容留下，<br>其余自然过去。</h1>
+          <p class="hero-copy">Agent 先提出候选，你决定什么值得成为长期记忆。</p>
+        </section>
+
+        <section class="summary-grid" aria-label="记忆状态概览">
+          <article class="summary-card summary-primary">
+            <span class="summary-label">等待你审阅</span>
+            <strong id="stat-proposed">—</strong>
+            <span class="summary-note">条候选记忆</span>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">已经批准</span>
+            <strong id="stat-approved">—</strong>
+            <span class="summary-note">等待 Agent 写入</span>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">已经应用</span>
+            <strong id="stat-applied">—</strong>
+            <span class="summary-note">条正式记忆</span>
+          </article>
+          <article class="summary-card policy-card">
+            <span class="summary-label">当前学习策略</span>
+            <strong id="policy-name" class="policy-name">未启用</strong>
+            <span id="policy-note" class="summary-note">先由你决定，再慢慢学习</span>
+          </article>
+        </section>
+
+        <section class="inbox-section" aria-labelledby="inbox-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">MEMORY REVIEW</p>
+              <h2 id="inbox-title">候选记忆</h2>
+            </div>
+            <span id="pending-episodes" class="quiet-meta"></span>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="候选状态">
+            <button class="tab is-active" type="button" role="tab" aria-selected="true" data-status="proposed">待审</button>
+            <button class="tab" type="button" role="tab" aria-selected="false" data-status="approved">已批准</button>
+            <button class="tab" type="button" role="tab" aria-selected="false" data-status="rejected">已忽略</button>
+            <button class="tab" type="button" role="tab" aria-selected="false" data-status="applied">已应用</button>
+          </div>
+
+          <div class="review-frame">
+            <aside class="candidate-pane" aria-label="候选记忆列表">
+              <div id="candidate-list" class="candidate-list" aria-live="polite"></div>
+            </aside>
+            <article id="detail-pane" class="detail-pane" aria-live="polite">
+              <div class="empty-detail">
+                <div class="empty-symbol" aria-hidden="true">○</div>
+                <h3>选择一条候选记忆</h3>
+                <p>查看它为何出现，再决定保留或忽略。</p>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span>Memory Workspace</span>
+        <span>本地优先 · 审阅后写入</span>
+      </footer>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
