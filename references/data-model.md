@@ -539,7 +539,10 @@ A Worker resolves each event exactly once as `ignore`, `session`, `project`, or
 ChangeSet and MUST NOT modify canonical data. It becomes writable only after a
 separate owner decision identifies the target. A single Writer then uses the
 existing Workspace Operation or Profile Memory workflow and records a verified
-application receipt.
+application receipt. Receipt schema v2 identifies `profile_single` or
+`workspace_operation`, carries the Operation id when applicable, and lists the
+checks that passed. Presentation clients may invoke this Writer after a separate
+explicit apply action, but must never edit canonical files themselves.
 
 The queue MUST remain optional, local, expiring, and independent of a particular
 Agent's Subagent API. Environments without durable background execution process
@@ -706,6 +709,11 @@ Episodes, reviewable personal Policy drafts, separate Candidate evidence,
 append-only feedback, and time-split replay. Historical Query frequency alone
 is not a positive label: the learner only treats Episodes with a later explicit
 canonical save route as positive evidence. See `references/adaptive-policy.md`.
+
+The v0.8 single Writer closes the reviewed Candidate lifecycle. It maps an
+approved target to the canonical Profile or Workspace protocol, rejects unsafe
+Profile overwrites, verifies readback/checks, and emits a machine-readable
+application receipt consumed by the local Review Inbox.
 
 This draft adds a Workspace manifest, stable Page and Claim identities,
 Snapshot hashes, Operation manifests, privacy classes, and a formal Skill/UI

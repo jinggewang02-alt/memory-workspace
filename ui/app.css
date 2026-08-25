@@ -496,6 +496,12 @@ h2 {
   transform: translateY(-1px);
 }
 
+.button:disabled {
+  cursor: wait;
+  opacity: 0.64;
+  transform: none;
+}
+
 .button-primary {
   border-color: var(--accent);
   background: var(--accent);
@@ -575,6 +581,43 @@ h2 {
   color: #615d57;
   font-size: 14px;
   line-height: 1.7;
+}
+
+.application-receipt {
+  margin-top: 24px;
+}
+
+.application-receipt .receipt-title {
+  margin-bottom: 6px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.receipt-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.receipt-check {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #e6ebe2;
+  color: #596452;
+  font-family: var(--font-latin);
+  font-size: 11px;
+}
+
+.receipt-id {
+  display: block;
+  overflow: hidden;
+  margin-top: 16px;
+  color: var(--muted);
+  font-family: var(--font-latin);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .loading {

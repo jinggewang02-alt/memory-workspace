@@ -160,13 +160,27 @@ For a project Candidate, the referenced Workspace must already exist, the
 relative path must not escape it, and the Workspace id must match the Candidate
 hint. A Profile target uses `profile:<key>` and must match its key hint.
 
-After approval, the single Writer uses the existing canonical path:
+After approval, invoke the single Writer:
+
+```bash
+python3 <skill-dir>/scripts/capture.py candidate apply <candidate-id> \
+  --actor owner_via_agent \
+  --json
+```
+
+The command uses the existing canonical path:
 
 - project Candidate: create and apply a reviewed Workspace Operation;
 - profile Candidate: run `store.py doctor`, write with `set` / `add`, and read
   back with `get`.
 
-Only after canonical verification record the receipt:
+It records a schema v2 application receipt only after canonical verification.
+The receipt includes Writer kind, optional Workspace Operation id, and named
+checks so a UI can display the result without parsing prose.
+
+`mark-applied` remains a low-level compatibility command for an external Writer
+that has already performed and verified the canonical write. Do not use it to
+skip the Writer:
 
 ```bash
 python3 <skill-dir>/scripts/capture.py candidate mark-applied <candidate-id> \
@@ -174,6 +188,9 @@ python3 <skill-dir>/scripts/capture.py candidate mark-applied <candidate-id> \
   --actor owner_via_agent \
   --json
 ```
+
+Profile single-value conflicts stop without overwrite and leave the Candidate
+`approved`. String Candidates do not auto-apply to structured Profile entries.
 
 Reject a Candidate without touching canonical data:
 

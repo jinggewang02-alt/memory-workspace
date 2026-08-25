@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from memory_workspace import capture, episodes, evaluation, feedback, history, policy  # noqa: E402
+from memory_workspace import capture, episodes, evaluation, feedback, history, policy, writer  # noqa: E402
 from memory_workspace.io import MemoryWorkspaceError  # noqa: E402
 
 
@@ -112,6 +112,13 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("candidate_id")
     command.add_argument("--actor", default="owner_via_agent")
     command.add_argument("--verification", required=True)
+    add_json_flag(command)
+
+    command = candidate_sub.add_parser(
+        "apply", help="apply an approved candidate through the canonical single writer"
+    )
+    command.add_argument("candidate_id")
+    command.add_argument("--actor", default="owner_via_agent")
     add_json_flag(command)
 
     history_parser = sub.add_parser("history", help="import bounded, platform-neutral query history")
@@ -295,6 +302,8 @@ def run_command(args: argparse.Namespace) -> Any:
             actor=args.actor,
             verification=args.verification,
         )
+    if args.cmd == "candidate" and args.candidate_cmd == "apply":
+        return writer.apply_candidate(args.candidate_id, actor=args.actor)
     if args.cmd == "history" and args.history_cmd == "import":
         return history.import_jsonl(
             args.file,
@@ -400,7 +409,12 @@ def render_text(args: argparse.Namespace, result: Any) -> None:
             )
     elif name == "candidate.show":
         print(json.dumps(result, ensure_ascii=False, indent=2))
-    elif name in {"candidate.approve", "candidate.reject", "candidate.mark-applied"}:
+    elif name in {
+        "candidate.approve",
+        "candidate.reject",
+        "candidate.mark-applied",
+        "candidate.apply",
+    }:
         print(f"[capture] {result['candidate_id']} → {result['status']}")
     elif name == "history.import":
         print(

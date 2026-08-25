@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from . import capture, episodes, policy
+from . import capture, episodes, policy, writer
 from .io import MemoryWorkspaceError
 
 
@@ -22,7 +22,7 @@ ALLOWED_BIND_HOSTS = {"127.0.0.1", "localhost"}
 ALLOWED_STATUS = {"proposed", "approved", "rejected", "applied", "all"}
 MAX_BODY_BYTES = 64 * 1024
 CANDIDATE_ACTION_RE = re.compile(
-    r"^/api/candidates/(?P<candidate_id>cand_[A-Za-z0-9_-]+)/(?P<action>approve|reject|reveal)$"
+    r"^/api/candidates/(?P<candidate_id>cand_[A-Za-z0-9_-]+)/(?P<action>approve|reject|reveal|apply)$"
 )
 CANDIDATE_DETAIL_RE = re.compile(
     r"^/api/candidates/(?P<candidate_id>cand_[A-Za-z0-9_-]+)$"
@@ -127,9 +127,15 @@ def _optional_string(payload: dict[str, Any], key: str) -> str | None:
     return value
 
 
-def build_handler(*, root: Path | None, token: str) -> type[BaseHTTPRequestHandler]:
+def build_handler(
+    *,
+    root: Path | None,
+    token: str,
+    profile_path: Path | None,
+    workspaces_root: Path | None,
+) -> type[BaseHTTPRequestHandler]:
     class ReviewInboxHandler(BaseHTTPRequestHandler):
-        server_version = "MemoryWorkspaceUI/0.7"
+        server_version = "MemoryWorkspaceUI/0.8"
 
         def end_headers(self) -> None:
             self.send_header("Cache-Control", "no-store")
@@ -234,6 +240,16 @@ def build_handler(*, root: Path | None, token: str) -> type[BaseHTTPRequestHandl
                         {"ok": True, "content": bundle["candidate"]["content"]}
                     )
                     return
+                if action == "apply":
+                    result = writer.apply_candidate(
+                        candidate_id,
+                        actor="owner_via_local_ui",
+                        capture_root=root,
+                        profile_path=profile_path,
+                        workspaces_root=workspaces_root,
+                    )
+                    self._send_json({"ok": True, "result": result})
+                    return
                 if action == "approve":
                     result = capture.decide_candidate(
                         candidate_id,
@@ -243,6 +259,7 @@ def build_handler(*, root: Path | None, token: str) -> type[BaseHTTPRequestHandl
                         edited_content=_optional_string(payload, "edited_content"),
                         feedback_reason=_optional_string(payload, "feedback_reason"),
                         root=root,
+                        workspaces_root=workspaces_root,
                     )
                 else:
                     suppress_similar = payload.get("suppress_similar", False)
@@ -269,13 +286,21 @@ def create_server(
     port: int = 8741,
     root: Path | None = None,
     token: str | None = None,
+    profile_path: Path | None = None,
+    workspaces_root: Path | None = None,
 ) -> ThreadingHTTPServer:
     bind_host = _validate_bind_host(host)
     if port < 0 or port > 65535:
         raise MemoryWorkspaceError("端口必须在 0–65535 之间。")
     session_token = token or secrets.token_urlsafe(32)
     server = ThreadingHTTPServer(
-        (bind_host, port), build_handler(root=root, token=session_token)
+        (bind_host, port),
+        build_handler(
+            root=root,
+            token=session_token,
+            profile_path=profile_path,
+            workspaces_root=workspaces_root,
+        ),
     )
     server.daemon_threads = True
     return server

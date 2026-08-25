@@ -140,8 +140,9 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 3. Worker 先按 conversation 和时间间隔聚合 Episode，再解析为 `ignore`、`session`、
    `project` 或 `profile`。只有后两者产生 Candidate；一个 Episode 默认只产生一个
    Candidate，Worker 不得直接写正式 Workspace 或 Profile Memory。
-4. Candidate 由用户批准后，单一 Writer 才能调用现有 `workspace.py` / `store.py`；完成
-   读回或 Workspace check 后再 `mark-applied`。
+4. Candidate 由用户批准后，才运行 `capture.py candidate apply <id>`。该单一 Writer
+   会通过 Workspace Operation 或 Profile Memory 正式写入，完成读回/check 后自动生成
+   application receipt；Writer 失败时 Candidate 保持 `approved`，不得手工伪造 applied。
 5. 异步队列保存本机明文暂存，默认关闭，拒绝密码、Token、Cookie、私钥等秘密，并
    应定期清理过期原始事件。
 6. 历史学习只把后来出现明确 Workspace/Profile 保存行为的 Episode 当正样本；普通
@@ -163,8 +164,10 @@ python3 <skill-dir>/scripts/ui.py
 ```
 
 它只监听本机，展示候选、判断原因和脱敏证据，并将批准/忽略操作交回现有 Capture
-审阅契约；它不直接修改正式 Workspace 或 Profile Memory。新环境仍须先完成能力探针，
-无浏览器或不能保持本地进程时继续使用 `scripts/capture.py`，不得为 UI 擅自安装运行时。
+审阅契约。批准后，用户可再明确点击“写入正式记忆”，由同一个单一 Writer 完成正式
+写入、校验和回执；浏览器代码不直接编辑 Workspace 或 Profile Memory。新环境仍须先
+完成能力探针，无浏览器或不能保持本地进程时继续使用 `scripts/capture.py`，不得为 UI
+擅自安装运行时。
 详细边界见 [references/local-review-inbox.md](references/local-review-inbox.md)。
 
 ## Profile Memory 工作流

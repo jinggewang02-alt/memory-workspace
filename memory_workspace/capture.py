@@ -662,6 +662,7 @@ def decide_candidate(
     feedback_reason: str | None = None,
     suppress_similar: bool = False,
     root: Path | None = None,
+    workspaces_root: Path | None = None,
 ) -> dict[str, Any]:
     bundle = _candidate_bundle(candidate_id, root=root)
     if bundle["review"] is not None:
@@ -678,7 +679,9 @@ def decide_candidate(
     if decision == "rejected" and clean_edited is not None:
         raise MemoryWorkspaceError("拒绝 candidate 时不得提供 edited-content。")
     if decision == "approved":
-        _validate_approval_target(bundle["candidate"], clean_target)
+        _validate_approval_target(
+            bundle["candidate"], clean_target, workspaces_root=workspaces_root
+        )
         _reject_secrets(clean_edited)
     document = {
         "schema_version": 2,
@@ -735,7 +738,12 @@ def decide_candidate(
     }
 
 
-def _validate_approval_target(candidate: dict[str, Any], target_ref: str) -> None:
+def _validate_approval_target(
+    candidate: dict[str, Any],
+    target_ref: str,
+    *,
+    workspaces_root: Path | None = None,
+) -> None:
     if candidate["scope"] == "project":
         match = re.fullmatch(r"workspace:([a-z0-9]+(?:-[a-z0-9]+)*)/(.+)", target_ref)
         if match is None:
@@ -753,7 +761,7 @@ def _validate_approval_target(candidate: dict[str, Any], target_ref: str) -> Non
             )
         from .workspace import load_manifest
 
-        load_manifest(workspace_id)
+        load_manifest(workspace_id, root=workspaces_root)
         return
 
     match = re.fullmatch(r"profile:(.+)", target_ref)
@@ -772,6 +780,9 @@ def mark_candidate_applied(
     *,
     actor: str,
     verification: str,
+    writer_kind: str | None = None,
+    operation_id: str | None = None,
+    checks: list[str] | None = None,
     root: Path | None = None,
 ) -> dict[str, Any]:
     bundle = _candidate_bundle(candidate_id, root=root)
@@ -784,14 +795,41 @@ def mark_candidate_applied(
     clean_verification = verification.strip()
     if not clean_actor or not clean_verification:
         raise MemoryWorkspaceError("actor 和 verification 不能为空。")
-    document = {
-        "schema_version": 1,
-        "candidate_id": candidate_id,
-        "applied_at": format_datetime(now_utc()),
-        "actor": clean_actor,
-        "target_ref": review["target_ref"],
-        "verification": clean_verification,
-    }
+    if writer_kind is None:
+        document = {
+            "schema_version": 1,
+            "candidate_id": candidate_id,
+            "applied_at": format_datetime(now_utc()),
+            "actor": clean_actor,
+            "target_ref": review["target_ref"],
+            "verification": clean_verification,
+        }
+    else:
+        if writer_kind not in {"profile_single", "workspace_operation"}:
+            raise MemoryWorkspaceError(f"未知的 Writer 类型：{writer_kind}")
+        if writer_kind == "profile_single" and operation_id is not None:
+            raise MemoryWorkspaceError("profile_single receipt 不得包含 operation_id。")
+        if writer_kind == "workspace_operation" and operation_id is None:
+            raise MemoryWorkspaceError("workspace_operation receipt 必须包含 operation_id。")
+        clean_checks = [item.strip() for item in (checks or []) if item.strip()]
+        if not clean_checks:
+            raise MemoryWorkspaceError("v2 application receipt 至少需要一个 verification check。")
+        document = {
+            "schema_version": 2,
+            "candidate_id": candidate_id,
+            "applied_at": format_datetime(now_utc()),
+            "actor": clean_actor,
+            "target_ref": review["target_ref"],
+            "writer": {
+                "kind": writer_kind,
+                "operation_id": operation_id,
+            },
+            "verification": {
+                "status": "passed",
+                "summary": clean_verification,
+                "checks": clean_checks,
+            },
+        }
     path = _application_path(candidate_id, root=root)
     _write_document_once(path, document, APPLICATION_SCHEMA, "candidate application")
     return {"candidate_id": candidate_id, "status": "applied", "application_path": str(path)}

@@ -178,6 +178,7 @@ records and show:
 - actions: approve, edit-then-approve, reject, or suppress similar;
 - evaluation: trigger volume and labeled quality as separate metrics.
 
-The UI must not bypass `candidate approve`, the canonical single Writer, or
-`mark-applied`. It also must not reinterpret an unlabeled Episode as a negative
-example merely because the user did not explicitly save it.
+The UI must route approval through `candidate approve` and canonical writes
+through the single Writer. Only that Writer (or a verified external compatibility
+Writer) may produce `mark-applied`. The UI also must not reinterpret an unlabeled
+Episode as a negative example merely because the user did not explicitly save it.

@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "candidate_id": "cand_20260825T120000Z_example",
+  "applied_at": "2026-08-25T12:03:00Z",
+  "actor": "owner_via_local_ui",
+  "target_ref": "workspace:example-project/wiki/projects/example/decisions.md",
+  "writer": {
+    "kind": "workspace_operation",
+    "operation_id": "op_20260825T120200Z_example"
+  },
+  "verification": {
+    "status": "passed",
+    "summary": "Workspace operation applied and target readback passed",
+    "checks": [
+      "candidate-approved",
+      "workspace-operation-applied",
+      "workspace-check",
+      "target-readback"
+    ]
+  }
+}

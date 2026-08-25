@@ -86,6 +86,17 @@ function showToast(message, isError = false) {
   toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 3200);
 }
 
+function activateStatus(status) {
+  state.status = status;
+  state.selectedId = null;
+  state.detail = null;
+  document.querySelectorAll(".tab").forEach((item) => {
+    const active = item.dataset.status === status;
+    item.classList.toggle("is-active", active);
+    item.setAttribute("aria-selected", active ? "true" : "false");
+  });
+}
+
 async function loadOverview() {
   const { overview } = await api("/api/overview");
   $("#stat-proposed").textContent = overview.counts.proposed;
@@ -295,8 +306,9 @@ function showApproveForm(pane, candidate) {
           feedback_reason: "approved_via_local_review_inbox",
         },
       });
-      showToast("已批准，等待 Agent 完成正式写入。");
-      await Promise.all([loadOverview(), loadCandidates()]);
+      showToast("已批准。确认后即可写入正式记忆。");
+      activateStatus("approved");
+      await Promise.all([loadOverview(), loadCandidates(candidate.candidate_id)]);
     } catch (error) {
       submit.disabled = false;
       showToast(error.message, true);
@@ -304,6 +316,50 @@ function showApproveForm(pane, candidate) {
   });
   pane.append(form);
   textarea.focus();
+}
+
+async function applyCandidate(candidate, button) {
+  button.disabled = true;
+  button.textContent = "正在写入并校验…";
+  try {
+    await api("/api/candidates/" + encodeURIComponent(candidate.candidate_id) + "/apply", {
+      method: "POST",
+      body: {},
+    });
+    showToast("正式写入与校验均已完成。");
+    activateStatus("applied");
+    await Promise.all([loadOverview(), loadCandidates(candidate.candidate_id)]);
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "写入正式记忆";
+    showToast(error.message, true);
+  }
+}
+
+function renderApplicationReceipt(pane, application) {
+  if (!application) return;
+  const section = element("section", "detail-section application-receipt");
+  section.append(element("h4", "", "写入回执"));
+  if (application.schema_version === 2) {
+    const writerLabel = application.writer.kind === "workspace_operation"
+      ? "Workspace Operation"
+      : "Profile Memory 精确写入";
+    section.append(
+      element("p", "receipt-title", writerLabel),
+      element("p", "", application.verification.summary),
+    );
+    const checks = element("div", "receipt-checks");
+    application.verification.checks.forEach((check) => {
+      checks.append(element("span", "receipt-check", "✓ " + check));
+    });
+    section.append(checks);
+    if (application.writer.operation_id) {
+      section.append(element("code", "receipt-id", application.writer.operation_id));
+    }
+  } else {
+    section.append(element("p", "", application.verification));
+  }
+  pane.append(section);
 }
 
 function showRejectForm(pane, candidate) {
@@ -416,11 +472,21 @@ function renderDetail() {
     actions.append(reject, approve);
     pane.append(actions);
   } else if (detail.status === "approved") {
-    pane.append(element("div", "status-note", "你已经批准这条候选。它仍需由 Agent 通过单一 Writer 写入正式存储，并在校验成功后标记为已应用。"));
+    const note = candidate.scope === "profile"
+      ? "下一步会写入个人档案，并逐字读回校验。已有不同值时会停止，不会静默覆盖。"
+      : "下一步会生成并应用 Workspace Operation，通过结构检查和目标读回后才算完成。";
+    pane.append(element("div", "status-note", note));
+    const actions = element("div", "detail-actions");
+    const apply = element("button", "button button-primary", "写入正式记忆");
+    apply.type = "button";
+    apply.addEventListener("click", () => applyCandidate(candidate, apply));
+    actions.append(apply);
+    pane.append(actions);
   } else if (detail.status === "rejected") {
     pane.append(element("div", "status-note", "这条候选已被忽略。反馈会参与下一版个人策略的调整。"));
   } else {
     pane.append(element("div", "status-note", "这条记忆已经完成正式写入与校验。"));
+    renderApplicationReceipt(pane, detail.application);
   }
 }
 
@@ -428,14 +494,7 @@ function bindTabs() {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", async () => {
       if (tab.dataset.status === state.status) return;
-      state.status = tab.dataset.status;
-      state.selectedId = null;
-      state.detail = null;
-      document.querySelectorAll(".tab").forEach((item) => {
-        const active = item === tab;
-        item.classList.toggle("is-active", active);
-        item.setAttribute("aria-selected", active ? "true" : "false");
-      });
+      activateStatus(tab.dataset.status);
       try {
         await loadCandidates();
       } catch (error) {
