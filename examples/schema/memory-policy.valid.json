@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "policy_id": "policy_20260824_example",
+  "created_at": "2026-08-24T12:00:00Z",
+  "state": "draft",
+  "source_summary": {"event_count": 10, "conversation_count": 3, "history_event_count": 10, "live_event_count": 0, "positive_episode_count": 1, "unlabeled_episode_count": 2},
+  "signals": {"brevity": {"query_count": 3, "conversation_count": 3}},
+  "rules": {
+    "repeated_brevity": {
+      "enabled": true,
+      "kind": "preference",
+      "scope": "profile",
+      "minimum_conversations": 3,
+      "minimum_episode_events": 1,
+      "evidence_episode_ids": [],
+      "explanation": "Repeated across conversations."
+    }
+  },
+  "feedback_summary": {"approved": 1}
+}

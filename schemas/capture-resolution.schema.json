@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/capture-resolution.schema.json",
+  "title": "Asynchronous capture resolution",
+  "oneOf": [
+    {"$ref": "#/$defs/v1"},
+    {"$ref": "#/$defs/v2"}
+  ],
+  "$defs": {
+    "v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "event_id", "resolved_at", "resolved_by", "decision", "reason", "candidate"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "event_id": {"type": "string", "pattern": "^evt_[A-Za-z0-9_-]+$"},
+        "resolved_at": {"type": "string", "format": "date-time"},
+        "resolved_by": {"type": "string", "minLength": 1},
+        "decision": {"enum": ["ignore", "session", "project", "profile"]},
+        "reason": {"type": "string", "minLength": 1},
+        "candidate": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/legacy_candidate"}]}
+      }
+    },
+    "v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "event_id", "episode_id", "evidence_event_ids", "resolved_at", "resolved_by", "decision", "reason", "policy_version", "trigger_phase", "candidate_id", "deduplicated"],
+      "properties": {
+        "schema_version": {"const": 2},
+        "event_id": {"type": "string", "pattern": "^evt_[A-Za-z0-9_-]+$"},
+        "episode_id": {"type": ["string", "null"]},
+        "evidence_event_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^evt_[A-Za-z0-9_-]+$"}},
+        "resolved_at": {"type": "string", "format": "date-time"},
+        "resolved_by": {"type": "string", "minLength": 1},
+        "decision": {"enum": ["ignore", "session", "project", "profile"]},
+        "reason": {"type": "string", "minLength": 1},
+        "policy_version": {"type": ["string", "null"]},
+        "trigger_phase": {"type": ["string", "null"]},
+        "candidate_id": {"type": ["string", "null"]},
+        "deduplicated": {"type": "boolean"}
+      }
+    },
+    "legacy_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "scope", "content", "confidence", "sensitivity", "proposed_at", "proposed_by", "target_hint"],
+      "properties": {
+        "candidate_id": {"type": "string", "pattern": "^cand_[A-Za-z0-9_-]+$"},
+        "scope": {"enum": ["project", "profile"]},
+        "content": {"type": "string", "minLength": 1},
+        "confidence": {"type": "number"},
+        "sensitivity": {"enum": ["normal", "sensitive"]},
+        "proposed_at": {"type": "string", "format": "date-time"},
+        "proposed_by": {"type": "string", "minLength": 1},
+        "target_hint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["workspace_id", "profile_key"],
+          "properties": {
+            "workspace_id": {"type": ["string", "null"]},
+            "profile_key": {"type": ["string", "null"]}
+          }
+        }
+      }
+    }
+  }
+}

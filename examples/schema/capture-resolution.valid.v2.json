@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "event_id": "evt_20260824T120000Z_example",
+  "episode_id": "ep_example",
+  "evidence_event_ids": ["evt_20260824T120000Z_example"],
+  "resolved_at": "2026-08-24T12:05:00Z",
+  "resolved_by": "async-worker",
+  "decision": "project",
+  "reason": "The learning episode reached synthesis.",
+  "policy_version": "policy_example",
+  "trigger_phase": "synthesize",
+  "candidate_id": "cand_20260824T120500Z_example",
+  "deduplicated": false
+}

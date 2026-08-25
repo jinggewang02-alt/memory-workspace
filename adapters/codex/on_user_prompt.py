@@ -6,6 +6,7 @@ hook 无法调用 LLM，只做确定性的关键词粗判，把该做的事作�
   - 命中"记"信号（记住/存一下/记录…）    → 注入 REMEMBER 指令，让 agent 用 store.py 存
   - 命中文件导入信号                       → 注入 IMPORT_FILE 指令，先 checklist 后存
   - 命中显式召回或个人材料/表单场景         → 注入 RECALL 指令，让 agent 按需 search/get
+  - 显式开启异步/自适应捕获                → 只做本地观察入队，可选注入后台处理提示
   - 都不命中                              → 静默放行（零打扰）
 
 Codex 约定：本 hook 的 stdout 会作为 context 注入 agent。
@@ -17,14 +18,17 @@ import re
 import sys
 
 _SCRIPTS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "scripts"))
+_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 STORE = os.path.join(_SCRIPTS, "store.py")
 WORKSPACE = os.path.join(_SCRIPTS, "workspace.py")
+CAPTURE = os.path.join(_SCRIPTS, "capture.py")
 
 WORKSPACE_SIGNALS = [
     r"(创建|新建|初始化).{0,12}(workspace|工作区|wiki|知识库)",
     r"(收录|导入|放进|加入|添加).{0,16}(workspace|工作区|wiki|知识库)",
     r"(workspace|工作区|wiki|知识库).{0,16}(收录|导入|检查|诊断|查询|检索|维护)",
     r"(检查|诊断|查询|检索|维护).{0,16}(workspace|工作区|wiki|知识库)",
+    r"(记入|记录到|保存到).{0,16}(workspace|工作区|wiki|知识库)",
     r"\b(init|inspect|check|ingest).{0,16}(workspace|wiki)\b",
 ]
 
@@ -59,6 +63,19 @@ PERSONAL_SCENARIO_SIGNALS = [
     r"\b(fill|complete|update).{0,20}(website|profile|form|application)\b",
 ]
 RECALL_SIGNALS = EXPLICIT_RECALL_SIGNALS + PERSONAL_SCENARIO_SIGNALS
+
+# 这些信号只决定是否进入**异步待评估队列**，不代表内容应该被持久化。
+# `MWORK_ASYNC_CAPTURE=all` 会让所有非显式记忆消息进入队列；`signals`
+# 只处理下列可能具有跨轮次价值的表达；默认 `off`，不留存对话。
+# `adaptive` 不使用这些表达做持久化判断，而是记录短期观察，之后按 Episode
+# 和用户激活的 Policy 异步处理。
+ASYNC_CAPTURE_SIGNALS = [
+    r"(最终|正式|已经确认|决定|以后|后续).{0,24}(使用|采用|统一|改成|不再|需要)",
+    r"(不要|不能|必须|统一|始终).{0,32}(写死|使用|处理|保存|记录|支持)",
+    r"(北极星|核心指标|最终方案|产品要求|项目约束)",
+    r"我(长期|一直|通常|更)(关注|偏好|喜欢|习惯)",
+    r"我的.{0,20}(是|为|：|:)",
+]
 
 
 def hit(text, patterns):
@@ -119,6 +136,73 @@ RECALL_TMPL = """[memory-workspace/profile] RECALL
 
 档案文件：{store_hint}"""
 
+ASYNC_CAPTURE_TMPL = """[memory-workspace] ASYNC_CAPTURE
+
+本轮已通过本地轻量写入进入异步队列：{event_id}。
+
+1. 先完成并返回用户当前 Query；不得等待记忆判断，不得在主链路调用模型做捕获分类。
+2. 仅当当前环境支持回答后仍能安全存活的后台任务或 Subagent，且当前没有队列 Worker 时，才派发一个 Worker 批量处理 pending；不要为每个 event 重复创建 Subagent，也不要等待 Worker。
+3. Worker 先运行 `python3 {capture} worker plan --json`，按 conversation Episode 批量读取；不要把单条关键词当成持久化结论。
+4. Worker 用 `episode show` 获取证据，并用 `episode resolve` 生成 ignore/session/project/profile 结果；project/profile 只产生候选，不得直接写正式 Workspace 或 Profile Memory。`feedback_only` Episode 用 `episode resolve --decision session` 记录反馈并关闭，不得重复生成候选。
+5. 正式写入仍需用户审阅，并由单一 Writer 通过现有 workspace.py/store.py 流程完成。"""
+
+
+def _event_string(event, *keys):
+    for key in keys:
+        value = event.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def enqueue_async_capture(event, prompt, *, direct_route):
+    mode = os.environ.get("MWORK_ASYNC_CAPTURE", "off").strip().lower()
+    if mode in {"", "0", "false", "off"}:
+        return None
+    if mode not in {"all", "signals", "adaptive"}:
+        print(
+            "[memory-workspace] MWORK_ASYNC_CAPTURE 必须是 off/signals/all/adaptive；本轮未入队。",
+            file=sys.stderr,
+        )
+        return None
+    # 旧模式避免重复；adaptive 仍记录 observation-only，用作后续正/负反馈。
+    if mode != "adaptive" and direct_route != "none":
+        return None
+    if mode == "signals" and not hit(prompt, ASYNC_CAPTURE_SIGNALS):
+        return None
+    try:
+        retention_days = int(os.environ.get("MWORK_CAPTURE_RETENTION_DAYS", "7"))
+    except ValueError:
+        print(
+            "[memory-workspace] MWORK_CAPTURE_RETENTION_DAYS 不是整数；本轮未入队。",
+            file=sys.stderr,
+        )
+        return None
+    if _ROOT not in sys.path:
+        sys.path.insert(0, _ROOT)
+    try:
+        from memory_workspace.capture import enqueue_event
+
+        return enqueue_event(
+            prompt,
+            conversation_id=_event_string(event, "conversation_id", "thread_id", "session_id"),
+            message_id=_event_string(event, "message_id", "turn_id"),
+            workspace_id=(
+                _event_string(event, "workspace_id") or os.environ.get("MWORK_WORKSPACE_ID")
+            ),
+            source_agent=os.environ.get("MWORK_SOURCE_AGENT", "agent-hook"),
+            source_adapter=os.environ.get("MWORK_SOURCE_ADAPTER", "local-agent-hook"),
+            source_kind="live",
+            occurred_at=_event_string(event, "occurred_at", "timestamp", "created_at"),
+            direct_route=direct_route,
+            capture_eligible=direct_route == "none",
+            retention_days=retention_days,
+        )
+    except Exception as exc:  # hook 不能因为可选后台能力中断用户 Query
+        # 异步候选失败不得拖慢或阻断当前 Query，也不得伪装已经入队。
+        print(f"[memory-workspace] async capture skipped: {exc}", file=sys.stderr)
+        return None
+
 
 def main():
     raw = sys.stdin.read()
@@ -137,16 +221,38 @@ def main():
     is_file = hit(prompt, FILE_SIGNALS)
     is_recall = hit(prompt, RECALL_SIGNALS)
     is_workspace = hit(prompt, WORKSPACE_SIGNALS)
+    direct_route = (
+        "workspace"
+        if is_workspace
+        else "remember"
+        if is_remember
+        else "recall"
+        if is_recall
+        else "none"
+    )
 
+    instructions = []
     # 明确提到 Wiki/Workspace 时优先项目知识库，避免把来源文件误存为个人档案。
     if is_workspace:
-        print(PROJECT_WIKI_TMPL.format(workspace=WORKSPACE))
+        instructions.append(PROJECT_WIKI_TMPL.format(workspace=WORKSPACE))
     elif is_remember and is_file:
-        print(IMPORT_FILE_TMPL.format(store=STORE, store_hint=store_hint))
+        instructions.append(IMPORT_FILE_TMPL.format(store=STORE, store_hint=store_hint))
     elif is_remember:
-        print(REMEMBER_TMPL.format(store=STORE, store_hint=store_hint))
+        instructions.append(REMEMBER_TMPL.format(store=STORE, store_hint=store_hint))
     elif is_recall:
-        print(RECALL_TMPL.format(store=STORE, store_hint=store_hint))
+        instructions.append(RECALL_TMPL.format(store=STORE, store_hint=store_hint))
+
+    queued = enqueue_async_capture(
+        event,
+        prompt,
+        direct_route=direct_route,
+    )
+    if queued and os.environ.get("MWORK_ASYNC_CAPTURE_HINT", "1") != "0":
+        instructions.append(
+            ASYNC_CAPTURE_TMPL.format(event_id=queued["event_id"], capture=CAPTURE)
+        )
+    if instructions:
+        print("\n\n".join(instructions))
     # 都不命中 → 静默放行
     sys.exit(0)
 

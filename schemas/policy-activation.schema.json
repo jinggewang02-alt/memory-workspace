@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/policy-activation.schema.json",
+  "title": "Owner activation of a personal memory policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_id", "activated_at", "actor"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "policy_id": {"type": "string", "pattern": "^policy_[A-Za-z0-9_-]+$"},
+    "activated_at": {"type": "string", "format": "date-time"},
+    "actor": {"type": "string", "minLength": 1}
+  }
+}

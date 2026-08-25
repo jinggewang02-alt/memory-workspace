@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/capture-event.schema.json",
+  "title": "Asynchronous capture event",
+  "oneOf": [
+    {"$ref": "#/$defs/v1"},
+    {"$ref": "#/$defs/v2"}
+  ],
+  "$defs": {
+    "v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "event_id", "created_at", "expires_at", "source", "payload", "privacy"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "event_id": {"type": "string", "pattern": "^evt_[A-Za-z0-9_-]+$"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "source": {"$ref": "#/$defs/source_v1"},
+        "payload": {"$ref": "#/$defs/payload"},
+        "privacy": {"const": "local_plaintext_staging"}
+      }
+    },
+    "v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "event_id", "created_at", "occurred_at", "expires_at", "source_kind", "source", "routing", "payload", "privacy"],
+      "properties": {
+        "schema_version": {"const": 2},
+        "event_id": {"type": "string", "pattern": "^evt_[A-Za-z0-9_-]+$"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "occurred_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "source_kind": {"enum": ["live", "history_import"]},
+        "source": {"$ref": "#/$defs/source_v2"},
+        "routing": {"$ref": "#/$defs/routing"},
+        "payload": {"$ref": "#/$defs/payload"},
+        "privacy": {"const": "local_plaintext_staging"}
+      }
+    },
+    "source_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "conversation_id", "message_id", "workspace_id"],
+      "properties": {
+        "agent": {"type": "string", "minLength": 1},
+        "conversation_id": {"type": ["string", "null"]},
+        "message_id": {"type": ["string", "null"]},
+        "workspace_id": {"type": ["string", "null"]}
+      }
+    },
+    "source_v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "adapter", "conversation_id", "message_id", "workspace_id", "dedupe_key"],
+      "properties": {
+        "agent": {"type": "string", "minLength": 1},
+        "adapter": {"type": "string", "minLength": 1},
+        "conversation_id": {"type": ["string", "null"]},
+        "message_id": {"type": ["string", "null"]},
+        "workspace_id": {"type": ["string", "null"]},
+        "dedupe_key": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct_route", "capture_eligible"],
+      "properties": {
+        "direct_route": {"enum": ["none", "workspace", "remember", "recall"]},
+        "capture_eligible": {"type": "boolean"}
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["user_message", "assistant_summary"],
+      "properties": {
+        "user_message": {"type": "string", "minLength": 1},
+        "assistant_summary": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

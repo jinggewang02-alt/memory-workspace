@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "event_id": "bad-id",
+  "created_at": "not-a-date",
+  "expires_at": "2026-08-31T12:00:00Z",
+  "source": {},
+  "payload": {"user_message": ""},
+  "privacy": "public"
+}

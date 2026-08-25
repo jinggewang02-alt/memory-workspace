@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "evt_20260824T120000Z_example",
+  "resolved_at": "2026-08-24T12:01:00Z",
+  "resolved_by": "async_worker",
+  "decision": "project",
+  "reason": "Stable project constraint",
+  "candidate": {
+    "candidate_id": "cand_20260824T120000Z_example",
+    "scope": "project",
+    "content": "Use a platform-neutral compatibility layer.",
+    "confidence": 0.9,
+    "sensitivity": "normal",
+    "proposed_at": "2026-08-24T12:01:00Z",
+    "proposed_by": "async_worker",
+    "target_hint": {
+      "workspace_id": "example-project",
+      "profile_key": null
+    }
+  }
+}
