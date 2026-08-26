@@ -14,7 +14,17 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from memory_workspace import capture, episodes, evaluation, feedback, history, policy  # noqa: E402
+from memory_workspace import (  # noqa: E402
+    capture,
+    episodes,
+    evaluation,
+    feedback,
+    habits,
+    history,
+    onboarding,
+    policy,
+    writer,
+)
 from memory_workspace.io import MemoryWorkspaceError  # noqa: E402
 
 
@@ -114,6 +124,13 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--verification", required=True)
     add_json_flag(command)
 
+    command = candidate_sub.add_parser(
+        "apply", help="apply an approved candidate through the canonical single writer"
+    )
+    command.add_argument("candidate_id")
+    command.add_argument("--actor", default="owner_via_agent")
+    add_json_flag(command)
+
     history_parser = sub.add_parser("history", help="import bounded, platform-neutral query history")
     history_sub = history_parser.add_subparsers(dest="history_cmd", required=True)
     command = history_sub.add_parser("import", help="import normalized JSONL user queries")
@@ -121,6 +138,41 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--adapter", default="generic-jsonl")
     command.add_argument("--retention-days", type=int, default=30)
     command.add_argument("--limit", type=int, default=1000)
+    command.add_argument("--since")
+    command.add_argument("--until")
+    add_json_flag(command)
+
+    onboarding_parser = sub.add_parser(
+        "onboarding", help="run first-use learning over Agent-visible history"
+    )
+    onboarding_sub = onboarding_parser.add_subparsers(
+        dest="onboarding_cmd", required=True
+    )
+    command = onboarding_sub.add_parser("status", help="show first-use learning state")
+    add_json_flag(command)
+    command = onboarding_sub.add_parser(
+        "run", help="import the bounded history source and create review drafts"
+    )
+    command.add_argument("--file", type=Path)
+    command.add_argument("--adapter")
+    command.add_argument("--days", type=int, default=30)
+    command.add_argument("--limit", type=int, default=1000)
+    command.add_argument("--force", action="store_true")
+    add_json_flag(command)
+    command = onboarding_sub.add_parser(
+        "confirm", help="confirm the Markdown report and activate its policy"
+    )
+    command.add_argument("--actor", default="owner_via_cli")
+    add_json_flag(command)
+    command = onboarding_sub.add_parser(
+        "refine", help="replace the tentative baseline with an Agent semantic report"
+    )
+    command.add_argument("--file", type=Path, required=True)
+    add_json_flag(command)
+
+    habits_parser = sub.add_parser("habits", help="show the human-readable Query habits draft")
+    habits_sub = habits_parser.add_subparsers(dest="habits_cmd", required=True)
+    command = habits_sub.add_parser("show", help="show the current Query habits report")
     add_json_flag(command)
 
     episode_parser = sub.add_parser("episode", help="group events into conversation stages")
@@ -211,6 +263,10 @@ def command_name(args: argparse.Namespace) -> str:
         return f"candidate.{args.candidate_cmd}"
     if args.cmd == "history":
         return f"history.{args.history_cmd}"
+    if args.cmd == "onboarding":
+        return f"onboarding.{args.onboarding_cmd}"
+    if args.cmd == "habits":
+        return f"habits.{args.habits_cmd}"
     if args.cmd == "episode":
         return f"episode.{args.episode_cmd}"
     if args.cmd == "policy":
@@ -295,13 +351,39 @@ def run_command(args: argparse.Namespace) -> Any:
             actor=args.actor,
             verification=args.verification,
         )
+    if args.cmd == "candidate" and args.candidate_cmd == "apply":
+        return writer.apply_candidate(args.candidate_id, actor=args.actor)
     if args.cmd == "history" and args.history_cmd == "import":
         return history.import_jsonl(
             args.file,
             adapter=args.adapter,
             retention_days=args.retention_days,
             limit=args.limit,
+            since=args.since,
+            until=args.until,
         )
+    if args.cmd == "onboarding" and args.onboarding_cmd == "status":
+        return onboarding.get_status()
+    if args.cmd == "onboarding" and args.onboarding_cmd == "run":
+        return onboarding.run_first_learning(
+            history_file=args.file,
+            adapter=args.adapter,
+            days=args.days,
+            limit=args.limit,
+            force=args.force,
+        )
+    if args.cmd == "onboarding" and args.onboarding_cmd == "confirm":
+        return onboarding.confirm_first_learning(actor=args.actor)
+    if args.cmd == "onboarding" and args.onboarding_cmd == "refine":
+        return onboarding.refine_habits_from_agent(args.file)
+    if args.cmd == "habits" and args.habits_cmd == "show":
+        report = habits.load_report(root=capture.capture_path())
+        if report is None:
+            raise MemoryWorkspaceError("还没有 query habits 报告。")
+        return {
+            "report": report,
+            "markdown_path": str(habits.report_markdown_path(capture.capture_path())),
+        }
     if args.cmd == "episode" and args.episode_cmd == "list":
         return episodes.list_episodes(
             status=args.status, idle_minutes=args.idle_minutes, limit=args.limit
@@ -400,13 +482,33 @@ def render_text(args: argparse.Namespace, result: Any) -> None:
             )
     elif name == "candidate.show":
         print(json.dumps(result, ensure_ascii=False, indent=2))
-    elif name in {"candidate.approve", "candidate.reject", "candidate.mark-applied"}:
+    elif name in {
+        "candidate.approve",
+        "candidate.reject",
+        "candidate.mark-applied",
+        "candidate.apply",
+    }:
         print(f"[capture] {result['candidate_id']} → {result['status']}")
     elif name == "history.import":
         print(
             f"[capture] imported={result['imported_count']} duplicate={result['duplicate_count']} "
             f"rejected_secret={result['rejected_secret_count']}"
         )
+    elif name == "onboarding.status":
+        print(f"[capture] first learning: {result['status']}")
+    elif name == "onboarding.run":
+        coverage = result["habits"]["coverage"]
+        print(
+            f"[capture] first learning → awaiting_review "
+            f"({coverage['conversation_count']} conversations, {coverage['query_count']} queries)"
+        )
+        print(f"markdown: {result['run']['habits_markdown_path']}")
+    elif name == "onboarding.confirm":
+        print("[capture] first learning → completed")
+    elif name == "onboarding.refine":
+        print("[capture] Query habits → agent_semantic_review (awaiting_review)")
+    elif name == "habits.show":
+        print(json.dumps(result, ensure_ascii=False, indent=2))
     elif name == "episode.list":
         if not result:
             print("[capture] （没有匹配 Episode）")

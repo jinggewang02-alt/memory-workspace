@@ -62,6 +62,55 @@ The command never uploads history and never edits canonical memory. Start with
 a small time range. If the current Agent cannot access history under the user's
 permissions, stop at that boundary; do not broaden account or file access.
 
+## First-use learning orchestration
+
+The public trigger is first Skill activation, not a product-specific install
+hook. A host adapter may hand off only the normalized history it is already
+authorized to see through `MWORK_HISTORY_FILE` / `MWORK_HISTORY_ADAPTER`, or the
+Agent may pass an exact file and capability name:
+
+```bash
+python3 <skill-dir>/scripts/capture.py onboarding status --json
+python3 <skill-dir>/scripts/capture.py onboarding run \
+  --file /absolute/path/to/agent-visible-history.jsonl \
+  --adapter <capability-name> \
+  --days 30 \
+  --json
+```
+
+`onboarding run` is idempotent unless `--force` is explicit. It discards rows
+outside the rolling window before Event creation, rejects common secrets, and
+produces two separate review drafts:
+
+- `learning/query-habits.md` plus its validated JSON source describe recurring
+  interaction patterns for humans and Agents;
+- `policies/policy_*.json` controls Candidate timing and remains inactive.
+
+The local baseline requires a pattern to appear in at least two conversations.
+It defines “distinctive” relative to the same user's repeated behavior, not a
+cross-user comparison. A semantic Agent may refine the draft without changing
+its coverage or citing events outside the imported history:
+
+```bash
+python3 <skill-dir>/scripts/capture.py onboarding refine \
+  --file /absolute/path/to/semantic-query-habits.json \
+  --json
+```
+
+The semantic report uses `query-habits.schema.json`, sets
+`method=agent_semantic_review` and `state=tentative`, and references only opaque
+Event IDs. Raw Query text is not copied into Markdown. The owner completes the
+gate through the UI or CLI:
+
+```bash
+python3 <skill-dir>/scripts/capture.py onboarding confirm --json
+```
+
+Confirmation marks the Markdown report confirmed and activates the matching
+Policy. It does not write the imported history into Workspace or Profile
+Memory. If no adapter is available, status remains `needs_history_source`; the
+system must not claim that the user has no history.
+
 ## Draft and activate a Policy
 
 Build creates an immutable draft. It stores counts, learned rule parameters,
@@ -178,6 +227,7 @@ records and show:
 - actions: approve, edit-then-approve, reject, or suppress similar;
 - evaluation: trigger volume and labeled quality as separate metrics.
 
-The UI must not bypass `candidate approve`, the canonical single Writer, or
-`mark-applied`. It also must not reinterpret an unlabeled Episode as a negative
-example merely because the user did not explicitly save it.
+The UI must route approval through `candidate approve` and canonical writes
+through the single Writer. Only that Writer (or a verified external compatibility
+Writer) may produce `mark-applied`. The UI also must not reinterpret an unlabeled
+Episode as a negative example merely because the user did not explicitly save it.

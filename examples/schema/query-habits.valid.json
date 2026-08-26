@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "report_id": "habits_20260825T120000Z_example",
+  "created_at": "2026-08-25T12:00:00Z",
+  "state": "tentative",
+  "coverage": {
+    "start": "2026-07-26T12:00:00Z",
+    "end": "2026-08-25T12:00:00Z",
+    "days": 30,
+    "query_count": 12,
+    "conversation_count": 4,
+    "source_adapters": ["example-adapter"]
+  },
+  "method": "local_signal_baseline",
+  "habits": [
+    {
+      "habit_id": "first-principles",
+      "title": "倾向追问底层原理",
+      "observation": "用户会在多个对话中继续追问为什么。",
+      "agent_guidance": "解释时补充因果和责任边界。",
+      "confidence": 0.82,
+      "evidence": {
+        "query_count": 4,
+        "conversation_count": 3,
+        "event_ids": ["evt_example"]
+      }
+    }
+  ],
+  "limitations": ["这是待确认的本地推断。"]
+}

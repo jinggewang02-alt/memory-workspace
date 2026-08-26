@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/query-habits.schema.json",
+  "title": "Human-reviewable personal query habits",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "report_id", "created_at", "state", "coverage", "method", "habits", "limitations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "report_id": {"type": "string", "pattern": "^habits_[A-Za-z0-9_-]+$"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "state": {"enum": ["tentative", "confirmed"]},
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "days", "query_count", "conversation_count", "source_adapters"],
+      "properties": {
+        "start": {"type": "string", "format": "date-time"},
+        "end": {"type": "string", "format": "date-time"},
+        "days": {"type": "integer"},
+        "query_count": {"type": "integer"},
+        "conversation_count": {"type": "integer"},
+        "source_adapters": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "method": {"enum": ["local_signal_baseline", "agent_semantic_review"]},
+    "habits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["habit_id", "title", "observation", "agent_guidance", "confidence", "evidence"],
+        "properties": {
+          "habit_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+          "title": {"type": "string", "minLength": 1},
+          "observation": {"type": "string", "minLength": 1},
+          "agent_guidance": {"type": "string", "minLength": 1},
+          "confidence": {"type": "number"},
+          "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["query_count", "conversation_count", "event_ids"],
+            "properties": {
+              "query_count": {"type": "integer"},
+              "conversation_count": {"type": "integer"},
+              "event_ids": {"type": "array", "items": {"type": "string", "pattern": "^evt_[A-Za-z0-9_-]+$"}}
+            }
+          }
+        }
+      }
+    },
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

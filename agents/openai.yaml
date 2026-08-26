@@ -1,4 +1,4 @@
 interface:
   display_name: "Memory Workspace"
-  short_description: "维护项目知识库、个人档案与异步待审候选"
-  default_prompt: "Use $memory-workspace to maintain my project wiki, precisely save or recall personal facts, and learn review-first capture timing from local conversation Episodes without delaying the current query."
+  short_description: "维护项目知识库、个人档案与本地候选审阅台"
+  default_prompt: "Use $memory-workspace to negotiate local capabilities, run the idempotent first-use 30-day Query-habit learning flow when an authorized history adapter is available, maintain my project wiki, precisely save or recall personal facts, learn review-first capture timing from local conversation Episodes, and open the local Review Inbox when visual review is useful."

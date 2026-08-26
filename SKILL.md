@@ -56,6 +56,36 @@ description: 维护本机优先、以项目为中心的个人知识库，并精�
 写入。完整状态协议和降级规则见
 [references/runtime-capabilities.md](references/runtime-capabilities.md)。
 
+### 首次启用：自动学习近 30 天 Query
+
+能力探针返回 `READY` 后，当前 Agent 必须检查一次首次学习状态：
+
+```bash
+python3 <skill-dir>/scripts/capture.py onboarding status --json
+```
+
+- 已经是 `awaiting_review` 或 `completed`：不得重复扫描，继续展示或使用现有结果。
+- `history_access.available=true`：在当前任务关键回答完成后运行 `onboarding run`；只处理
+  适配器明确交付、当前 Agent 原本有权读取且位于最近 30 天内的用户 Query。
+- 当前 Agent 能通过自己的历史工具读取对话、但探针没有现成文件时：按
+  `references/adaptive-policy.md` 的标准 JSONL 契约准备最小字段，再运行
+  `onboarding run --file <path> --adapter <capability-name>`。不得因用户安装 Skill 就搜索
+  其他账号、产品数据库、直接消息或未授权目录。
+- 当前环境不能读取历史时：停在 `needs_history_source`，允许用户以后导入文件；不得把
+  “看不到”说成“最近 30 天没有对话”。
+
+首次学习会生成两份待审产物：本机 `learning/query-habits.md` 是人可读的 Query 习惯
+草稿，`policies/policy_*.json` 是机器使用的记忆触发 Policy 草稿。前者描述相对于用户
+自身反复出现的交互模式，后者仍只把后来明确保存的 Episode 当正样本；二者不得混为
+一套宽松的自动记忆规则。低成本基线生成后，有语义分析能力的 Agent 可在完全相同的
+证据范围内提交 `onboarding refine --file <report.json>`，但不得扩大时间、账号或事件
+范围。只有用户在 CLI 或本地 UI 中确认后，才激活 Policy 并把 Markdown 标记为
+`confirmed`。
+
+“自动”指首次启用后由 Agent 在回答关键路径之外启动；不是静默扩大读取权限，也不
+保证每个宿主都存在安装后钩子。宿主支持安装后/后台任务时可立即执行，否则在第一次
+加载本 Skill 时执行一次。
+
 ## Workspace 工作流
 
 第一次在一个环境中写入前运行：
@@ -140,8 +170,9 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 3. Worker 先按 conversation 和时间间隔聚合 Episode，再解析为 `ignore`、`session`、
    `project` 或 `profile`。只有后两者产生 Candidate；一个 Episode 默认只产生一个
    Candidate，Worker 不得直接写正式 Workspace 或 Profile Memory。
-4. Candidate 由用户批准后，单一 Writer 才能调用现有 `workspace.py` / `store.py`；完成
-   读回或 Workspace check 后再 `mark-applied`。
+4. Candidate 由用户批准后，才运行 `capture.py candidate apply <id>`。该单一 Writer
+   会通过 Workspace Operation 或 Profile Memory 正式写入，完成读回/check 后自动生成
+   application receipt；Writer 失败时 Candidate 保持 `approved`，不得手工伪造 applied。
 5. 异步队列保存本机明文暂存，默认关闭，拒绝密码、Token、Cookie、私钥等秘密，并
    应定期清理过期原始事件。
 6. 历史学习只把后来出现明确 Workspace/Profile 保存行为的 Episode 当正样本；普通
@@ -153,6 +184,21 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 且值得用户审阅的项目结论或个人事实才生成 Candidate。完整协议、命令和跨 Agent 降级见
 [references/async-capture.md](references/async-capture.md)；历史导入、Episode、个人 Policy、
 反馈和离线回放见 [references/adaptive-policy.md](references/adaptive-policy.md)。
+
+### 本地候选审阅台
+
+环境有浏览器且用户要查看或处理待审候选时，可以启动最小本地 UI：
+
+```bash
+python3 <skill-dir>/scripts/ui.py
+```
+
+它只监听本机，展示候选、判断原因和脱敏证据，并将批准/忽略操作交回现有 Capture
+审阅契约。批准后，用户可再明确点击“写入正式记忆”，由同一个单一 Writer 完成正式
+写入、校验和回执；浏览器代码不直接编辑 Workspace 或 Profile Memory。新环境仍须先
+完成能力探针，无浏览器或不能保持本地进程时继续使用 `scripts/capture.py`，不得为 UI
+擅自安装运行时。
+详细边界见 [references/local-review-inbox.md](references/local-review-inbox.md)。
 
 ## Profile Memory 工作流
 
@@ -189,6 +235,8 @@ python3 <skill-dir>/scripts/store.py get 快递地址
   用户在当前请求中明确批准，否则停在 proposed。
 - 异步捕获：入队成功只表示 `pending`；Worker 只生成 Candidate。只有用户批准、正式
   写入完成且已有读回/check 证据时，才能标记 `applied`。
+- 首次历史学习：`onboarding run` 成功、`query-habits.md` 可读且 Policy 仍为 draft 时
+  只算 `awaiting_review`；只有用户确认后才算 `completed`，不得自动确认推断习惯。
 - Profile Memory 写入：命令成功，并且 `get` 返回值与用户原文逐字一致。
 - 查询：结论与来源、推断、用户观点和缺口边界清楚。
 - 未完成的 MVP 能力：明确报告边界，不用手工伪装成功。

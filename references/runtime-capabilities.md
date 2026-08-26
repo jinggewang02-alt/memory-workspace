@@ -14,6 +14,12 @@ The local implementation needs all of the following for full operation:
 - write to an explicit durable directory that survives later sessions;
 - surface permission failures instead of silently changing the destination.
 
+The probe also reports `capture_learning` storage and a separate
+`history_access` capability. History access is optional for ordinary
+Workspace/Profile use. When configured, it is only a handoff contract for
+normalized JSONL that the current Agent is already authorized to see; it is
+not permission to discover product databases or other accounts.
+
 Run the read-only probe with an available Python launcher:
 
 ```bash
@@ -53,7 +59,8 @@ capabilities:
 2. Filesystem available but commands unavailable: remain read-only unless a
    separately installed tool adapter exposes the same operations.
 3. Remote or chat-only environment: use only an explicitly configured API/tool
-   adapter. This repository does not yet provide one.
+   adapter. If that adapter cannot provide local durable storage, do not claim
+   that onboarding state or `query-habits.md` was saved.
 4. Unknown environment: report the missing capability rather than guessing the
    product or claiming local persistence.
 
@@ -61,5 +68,7 @@ capabilities:
 
 A new runtime should not require a new branch in `SKILL.md`. Its installer or
 adapter only needs to make the Skill discoverable, expose the capabilities
-above, and preserve the same CLI/JSON contracts. Runtime-specific packaging is
-outside the core Skill workflow.
+above, and preserve the same CLI/JSON contracts. For first-use learning, it may
+also hand off the minimum normalized user Query fields through
+`MWORK_HISTORY_FILE` and name its capability with `MWORK_HISTORY_ADAPTER`.
+Runtime-specific packaging remains outside the core Skill workflow.

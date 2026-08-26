@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "run_id": "onboard_20260825T120000Z_example",
+  "status": "awaiting_review",
+  "started_at": "2026-08-25T12:00:00Z",
+  "window": {"start": "2026-07-26T12:00:00Z", "end": "2026-08-25T12:00:00Z", "days": 30},
+  "source": {"adapter": "example", "source_path": "/local/history.jsonl", "boundary": "authorized rows only"},
+  "import_summary": {"input_rows": 10, "user_rows": 8, "imported_count": 8, "duplicate_count": 0, "rejected_secret_count": 0, "ignored_non_user_count": 2, "outside_window_count": 0},
+  "habits_report_id": "habits_20260825T120000Z_example",
+  "habits_markdown_path": "/local/query-habits.md",
+  "policy_id": "policy_20260825T120000Z_example",
+  "confirmed_at": null
+}
