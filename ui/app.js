@@ -7,6 +7,8 @@ const state = {
   selectedId: null,
   detail: null,
   revealedContent: null,
+  onboarding: null,
+  onboardingRunning: false,
 };
 
 const labels = {
@@ -36,6 +38,24 @@ function element(tag, className, text) {
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+/* 细线条图标（Lucide 风格内联 SVG，无外部依赖） */
+const ICONS = {
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+  sparkle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.7L19.6 10l-5.7 1.9L12 17.6l-1.9-5.7L4.4 10l5.7-1.9z"/></svg>',
+  arrowRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+};
+
+function icon(name) {
+  const wrap = document.createElement("span");
+  wrap.className = "icon";
+  wrap.innerHTML = ICONS[name] || "";
+  return wrap;
 }
 
 function formatDate(value) {
@@ -115,16 +135,171 @@ async function loadOverview() {
   }
 }
 
+function renderHabits(report) {
+  const list = $("#habit-list");
+  list.replaceChildren();
+  const items = report?.habits || [];
+  if (!items.length) {
+    const empty = element("div", "habit-item");
+    empty.append(
+      element("h3", "", "暂未发现稳定习惯"),
+      element("p", "", "没有把一次性问法误判为长期偏好。之后仍可继续从新反馈中学习。"),
+    );
+    list.append(empty);
+  } else {
+    items.forEach((habit) => {
+      const evidence = habit.evidence;
+      const item = element("article", "habit-item");
+      item.append(
+        element("h3", "", habit.title),
+        element("p", "", habit.observation),
+        element(
+          "span",
+          "",
+          evidence.conversation_count + " 个对话 · " +
+            evidence.query_count + " 条 Query · 信心 " +
+            Math.round(habit.confidence * 100) + "%",
+        ),
+      );
+      list.append(item);
+    });
+  }
+  list.hidden = false;
+}
+
+function renderOnboarding() {
+  const data = state.onboarding;
+  const status = data?.status || "needs_history_source";
+  const badge = $("#learning-state");
+  const copy = $("#learning-copy");
+  const metrics = $("#learning-metrics");
+  const list = $("#habit-list");
+  const form = $("#history-source-form");
+  const actions = $("#learning-actions");
+  badge.classList.remove("is-ready");
+  metrics.hidden = true;
+  list.hidden = true;
+  form.hidden = true;
+  actions.hidden = true;
+
+  if (status === "needs_history_source") {
+    badge.textContent = "等待历史来源";
+    copy.textContent = data.history_source?.boundary || "请由当前 Agent 提供它有权限读取的历史。";
+    form.hidden = false;
+    return;
+  }
+  if (status === "ready") {
+    badge.textContent = state.onboardingRunning ? "正在学习" : "准备就绪";
+    copy.textContent = "已发现当前 Agent 配置的历史来源，将在本机分析最近 30 天。";
+    return;
+  }
+
+  const report = data.habits;
+  const coverage = report.coverage;
+  const completed = status === "completed";
+  // 完成后整个首次学习面板自动收起隐藏，只留下核心审阅区
+  $("#learning-panel").hidden = completed;
+  badge.textContent = completed ? "已经确认" : "等待你确认";
+  badge.classList.add("is-ready");
+  copy.textContent = completed
+    ? "这份 Query 习惯已经成为 Agent 的个人交互参考，后续反馈仍会形成新草稿。"
+    : "已生成一份待确认的个人 Query 习惯报告。它不会把普通高频问法直接变成记忆触发规则。";
+  metrics.replaceChildren(
+    element("span", "", coverage.conversation_count + " 个对话"),
+    element("span", "", coverage.query_count + " 条 Query"),
+    element("span", "", coverage.days + " 天窗口"),
+    element("span", "", report.habits.length + " 条习惯草稿"),
+  );
+  metrics.hidden = false;
+  renderHabits(report);
+  $("#habits-path").textContent = data.run.habits_markdown_path;
+  $("#confirm-learning").hidden = completed;
+  actions.hidden = false;
+}
+
+async function startOnboarding(historyFile = null) {
+  if (state.onboardingRunning) return;
+  state.onboardingRunning = true;
+  renderOnboarding();
+  try {
+    const payload = await api("/api/onboarding/run", {
+      method: "POST",
+      body: { history_file: historyFile, days: 30 },
+    });
+    state.onboarding = payload.onboarding;
+    showToast("近 30 天对话已完成本地分析。");
+    await loadOverview();
+  } catch (error) {
+    showToast(error.message, true);
+  } finally {
+    state.onboardingRunning = false;
+    renderOnboarding();
+  }
+}
+
+async function loadOnboarding() {
+  const payload = await api("/api/onboarding");
+  state.onboarding = payload.onboarding;
+  renderOnboarding();
+  if (
+    state.onboarding.status === "ready" &&
+    state.onboarding.history_source?.auto_configured
+  ) {
+    await startOnboarding();
+  }
+}
+
+function bindOnboarding() {
+  // 折叠展开首次学习面板
+  $("#learning-toggle").addEventListener("click", () => {
+    const body = $("#learning-body");
+    const toggle = $("#learning-toggle");
+    const expanded = body.hidden;
+    body.hidden = !expanded;
+    toggle.setAttribute("aria-expanded", String(expanded));
+  });
+  $("#history-source-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const value = $("#history-source").value.trim();
+    if (!value) {
+      showToast("请填写 Agent 提供的本机 JSONL 路径。", true);
+      return;
+    }
+    await startOnboarding(value);
+  });
+  $("#confirm-learning").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = "正在确认…";
+    try {
+      const payload = await api("/api/onboarding/confirm", {
+        method: "POST",
+        body: {},
+      });
+      state.onboarding = payload.onboarding;
+      showToast("学习结果已确认，个性化策略已启用。可撤销的历史草稿仍保留在本机。");
+      await loadOverview();
+      renderOnboarding();
+    } catch (error) {
+      showToast(error.message, true);
+    } finally {
+      button.disabled = false;
+      button.textContent = "确认并启用策略";
+    }
+  });
+}
+
 function renderCandidateList() {
   const list = $("#candidate-list");
   list.replaceChildren();
   if (!state.candidates.length) {
     const empty = element("div", "empty-list");
     empty.append(
-      element("div", "empty-symbol", "✓"),
+      element("div", "empty-symbol", ""),
       element("h3", "", "这里已经很清爽"),
       element("p", "", state.status === "proposed" ? "暂时没有需要审阅的内容。" : "这个分类下还没有内容。"),
     );
+    empty.querySelector(".empty-symbol").appendChild(icon("check"));
     list.append(empty);
     return;
   }
@@ -170,8 +345,10 @@ async function loadCandidates(preferredId = null) {
 function renderEmptyDetail() {
   const pane = $("#detail-pane");
   const empty = element("div", "empty-detail");
+  const symbol = element("div", "empty-symbol", "");
+  symbol.appendChild(icon("inbox"));
   empty.append(
-    element("div", "empty-symbol", "○"),
+    symbol,
     element("h3", "", "没有需要展开的内容"),
     element("p", "", "切换分类，或让 Agent 继续整理新的候选记忆。"),
   );
@@ -235,6 +412,7 @@ function renderSensitiveContent(wrapper, candidate) {
   box.append(element("p", "", "这条候选可能包含个人信息。内容默认隐藏，只有你主动查看时才从本机读取。"));
   const reveal = element("button", "text-button", "显示敏感内容");
   reveal.type = "button";
+  reveal.prepend(icon("eye"));
   reveal.addEventListener("click", async () => {
     try {
       const payload = await api("/api/candidates/" + encodeURIComponent(candidate.candidate_id) + "/reveal", {
@@ -468,6 +646,7 @@ function renderDetail() {
     reject.addEventListener("click", () => showRejectForm(pane, candidate));
     const approve = element("button", "button button-primary", "批准记录");
     approve.type = "button";
+    approve.append(icon("arrowRight"));
     approve.addEventListener("click", () => showApproveForm(pane, candidate));
     actions.append(reject, approve);
     pane.append(actions);
@@ -506,10 +685,11 @@ function bindTabs() {
 
 async function init() {
   bindTabs();
+  bindOnboarding();
   try {
     const session = await api("/api/session");
     state.token = session.token;
-    await Promise.all([loadOverview(), loadCandidates()]);
+    await Promise.all([loadOverview(), loadCandidates(), loadOnboarding()]);
   } catch (error) {
     showToast(error.message, true);
     $("#candidate-list").replaceChildren(element("div", "loading", "无法连接本地数据。请确认服务仍在运行。"));

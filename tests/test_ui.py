@@ -6,6 +6,7 @@ import os
 import tempfile
 import threading
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -93,11 +94,33 @@ class LocalReviewInboxTests(unittest.TestCase):
         )
         return str(resolution["candidate_id"])
 
+    def write_history(self) -> Path:
+        path = Path(self.temporary.name) / "visible-history.jsonl"
+        now = datetime.now(timezone.utc)
+        rows = []
+        for index, days_ago in enumerate((8, 3), start=1):
+            occurred = (now - timedelta(days=days_ago)).isoformat()
+            rows.append(
+                {
+                    "role": "user",
+                    "conversation_id": f"history-{index}",
+                    "message_id": f"history-{index}-1",
+                    "occurred_at": occurred,
+                    "content": "这部分我没理解，为什么这么设计？",
+                }
+            )
+        path.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        return path
+
     def test_static_page_and_overview_are_local_and_not_cached(self) -> None:
         with urlopen(self.base_url + "/", timeout=3) as response:
             html = response.read().decode()
             headers = dict(response.headers.items())
-        self.assertIn("让重要的内容留下", html)
+        self.assertIn("重要的留下来", html)
+        self.assertIn("先理解你的提问方式", html)
         self.assertEqual(headers["Cache-Control"], "no-store")
         self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
 
@@ -106,6 +129,39 @@ class LocalReviewInboxTests(unittest.TestCase):
         overview = payload["overview"]
         self.assertEqual(overview["counts"]["proposed"], 0)
         self.assertEqual(overview["pending_episode_count"], 0)
+
+    def test_first_learning_report_round_trip(self) -> None:
+        _, before, _ = self.get("/api/onboarding")
+        self.assertEqual(before["onboarding"]["status"], "needs_history_source")
+
+        history_path = self.write_history()
+        status, started = self.post(
+            "/api/onboarding/run",
+            {
+                "history_file": str(history_path),
+                "adapter": "synthetic-ui-adapter",
+                "days": 30,
+            },
+            token="synthetic-test-token",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(started["onboarding"]["status"], "awaiting_review")
+        self.assertEqual(
+            started["onboarding"]["habits"]["coverage"]["conversation_count"], 2
+        )
+
+        _, report, _ = self.get("/api/habits")
+        self.assertTrue(report["markdown_path"].endswith("query-habits.md"))
+        self.assertEqual(report["report"]["state"], "tentative")
+
+        status, confirmed = self.post(
+            "/api/onboarding/confirm",
+            {},
+            token="synthetic-test-token",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(confirmed["onboarding"]["status"], "completed")
+        self.assertTrue(confirmed["onboarding"]["policy_active"])
 
     def test_bad_host_and_non_loopback_bind_are_rejected(self) -> None:
         with self.assertRaises(MemoryWorkspaceError):

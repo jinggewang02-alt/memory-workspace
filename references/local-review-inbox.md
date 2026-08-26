@@ -1,6 +1,6 @@
 # Local Review Inbox
 
-Status: MVP v0.2
+Status: MVP v0.3
 
 The Review Inbox is a local, derived view over asynchronous capture candidates.
 It is not a second memory store and it does not write directly to Workspace
@@ -20,7 +20,17 @@ occupied. The host is intentionally limited to `localhost` or `127.0.0.1`.
 
 ## UI contract
 
-The first release exposes one workflow:
+The UI exposes two connected workflows. First-use learning:
+
+1. read onboarding status without mutating history;
+2. when a host has configured an Agent-visible history handoff, start one
+   idempotent rolling 30-day analysis automatically;
+3. otherwise accept one exact local JSONL path selected by the owner;
+4. show conversation/Query coverage and tentative Query habits;
+5. only after an explicit owner action, confirm the Markdown report and
+   activate its matching Policy draft.
+
+Candidate review then continues through the existing workflow:
 
 1. list proposed, approved, rejected, or applied Candidates;
 2. inspect the Candidate, its resolution reason, Policy metadata, and redacted
@@ -46,6 +56,13 @@ request.
   Profile write/readback and then records a schema v2 application receipt.
 - Browser code does not bypass validation or directly edit queue or canonical
   files. A failed Writer leaves the Candidate `approved` for safe retry.
+- The browser never discovers account history itself. `/api/onboarding/run`
+  delegates to the same bounded importer and only reads an explicit path or the
+  host-configured `MWORK_HISTORY_FILE` handoff. Rows outside 30 days are not
+  turned into Events.
+- `query-habits.md` contains abstract observations, counts, confidence, and
+  Agent guidance; it does not copy raw Query text. Tentative habits and the
+  Policy remain inactive until `/api/onboarding/confirm`.
 
 This is a local convenience boundary, not protection from other software
 already running with the owner's filesystem or process permissions.

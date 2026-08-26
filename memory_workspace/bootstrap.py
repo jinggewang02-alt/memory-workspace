@@ -11,8 +11,11 @@ from pathlib import Path
 MINIMUM_PYTHON = (3, 10)
 REQUIRED_RESOURCES = (
     "SKILL.md",
+    "scripts/capture.py",
     "scripts/store.py",
     "scripts/workspace.py",
+    "schemas/query-habits.schema.json",
+    "schemas/onboarding-state.schema.json",
     "schemas/workspace.schema.json",
     "schemas/operation.schema.json",
 )
@@ -68,6 +71,13 @@ def _workspaces_root(environ):
     return Path.home() / ".personal-memory" / "workspaces", "default-home"
 
 
+def _capture_root(environ):
+    explicit = environ.get("MWORK_CAPTURE_DIR")
+    if explicit:
+        return Path(os.path.abspath(os.path.expanduser(explicit))), "MWORK_CAPTURE_DIR"
+    return Path.home() / ".memory-workspace" / "capture", "default-home"
+
+
 def _path_report(path, source, environ, parent_target=False):
     target = path if parent_target else path.parent
     parent = _nearest_existing_parent(target)
@@ -103,12 +113,39 @@ def build_report(
     missing = [relative for relative in REQUIRED_RESOURCES if not (root / relative).is_file()]
     profile_path, profile_source = _profile_path(environment)
     workspace_root, workspace_source = _workspaces_root(environment)
+    capture_root, capture_source = _capture_root(environment)
     profile = probe(profile_path, profile_source, environment, False)
     workspaces = probe(workspace_root, workspace_source, environment, True)
+    capture = probe(capture_root, capture_source, environment, True)
+
+    configured_history = environment.get("MWORK_HISTORY_FILE")
+    history_path = (
+        Path(os.path.abspath(os.path.expanduser(configured_history)))
+        if configured_history
+        else None
+    )
+    history_access = {
+        "contract": "agent-visible-normalized-jsonl",
+        "configured": history_path is not None,
+        "available": history_path is not None and history_path.is_file(),
+        "source_path": str(history_path) if history_path is not None else None,
+        "adapter": environment.get("MWORK_HISTORY_ADAPTER")
+        if history_path is not None
+        else None,
+        "window_days_maximum": 30,
+    }
 
     python_ready = version >= MINIMUM_PYTHON
-    transient = profile["transient_risk"] or workspaces["transient_risk"]
-    writable = profile["filesystem_writable"] and workspaces["filesystem_writable"]
+    transient = (
+        profile["transient_risk"]
+        or workspaces["transient_risk"]
+        or capture["transient_risk"]
+    )
+    writable = (
+        profile["filesystem_writable"]
+        and workspaces["filesystem_writable"]
+        and capture["filesystem_writable"]
+    )
 
     if missing:
         status = "UNSUPPORTED"
@@ -126,7 +163,7 @@ def build_report(
         status = "NEEDS_PERSISTENT_PATH"
         mode = "local-setup-required"
         actions = [
-            "Point PMEM_FILE or PMEM_DIR and MWORK_WORKSPACES_DIR to durable storage, then rerun."
+            "Point PMEM_FILE or PMEM_DIR, MWORK_WORKSPACES_DIR, and MWORK_CAPTURE_DIR to durable storage, then rerun."
         ]
     elif not writable:
         status = "NEEDS_PERMISSION"
@@ -140,6 +177,14 @@ def build_report(
         actions = [
             "Run the command-specific doctor before the first write; the host may still request permission."
         ]
+        if history_access["available"]:
+            actions.append(
+                "Run capture.py onboarding run; it will use only the configured 30-day history handoff."
+            )
+        else:
+            actions.append(
+                "If first-use learning is desired, let the current Agent provide only its visible history through the normalized JSONL adapter contract."
+            )
 
     return {
         "schema_version": 1,
@@ -163,7 +208,9 @@ def build_report(
             "persistent_storage": {
                 "profile_memory": profile,
                 "workspaces": workspaces,
+                "capture_learning": capture,
             },
+            "history_access": history_access,
         },
         "next_actions": actions,
         "limitations": [

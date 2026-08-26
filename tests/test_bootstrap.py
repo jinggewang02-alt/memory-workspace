@@ -46,6 +46,25 @@ class BootstrapTests(unittest.TestCase):
         self.assertNotIn('"platform"', serialized)
         self.assertNotIn('"host"', serialized)
 
+    def test_history_handoff_is_reported_without_platform_branching(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            history = Path(directory) / "visible.jsonl"
+            history.write_text("", encoding="utf-8")
+            report = build_report(
+                ROOT,
+                environ={
+                    "MWORK_HISTORY_FILE": str(history),
+                    "MWORK_HISTORY_ADAPTER": "synthetic-agent-adapter",
+                },
+                python_version=(3, 12, 1),
+                path_probe=probe(),
+            )
+        access = report["capabilities"]["history_access"]
+        self.assertTrue(access["configured"])
+        self.assertTrue(access["available"])
+        self.assertEqual(access["window_days_maximum"], 30)
+        self.assertEqual(access["adapter"], "synthetic-agent-adapter")
+
     def test_old_python_needs_runtime(self) -> None:
         report = build_report(
             ROOT,

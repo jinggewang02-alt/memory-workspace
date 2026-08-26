@@ -12,7 +12,9 @@
     <div class="page-shell">
       <header class="site-header">
         <a class="brand" href="/" aria-label="Memory Workspace 首页">
-          <span class="brand-mark" aria-hidden="true">M</span>
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          </span>
           <span>Memory Workspace</span>
         </a>
         <div class="local-pill"><span class="status-dot"></span>仅在本机运行</div>
@@ -20,9 +22,38 @@
 
       <main>
         <section class="hero" aria-labelledby="page-title">
-          <p class="eyebrow">REVIEW INBOX</p>
-          <h1 id="page-title">让重要的内容留下，<br>其余自然过去。</h1>
+          <p class="eyebrow">Memory Workspace</p>
+          <h1 id="page-title">重要的留下来，其余的随它去。</h1>
           <p class="hero-copy">Agent 先提出候选，你决定什么值得成为长期记忆。</p>
+        </section>
+
+        <section id="learning-panel" class="learning-panel" aria-labelledby="learning-title">
+          <button class="learning-heading" type="button" id="learning-toggle" aria-expanded="false">
+            <div>
+              <p class="eyebrow">FIRST LEARNING</p>
+              <h2 id="learning-title">先理解你的提问方式</h2>
+            </div>
+            <span id="learning-state" class="learning-state">正在检查</span>
+          </button>
+          <div id="learning-body" class="learning-body" hidden>
+            <p id="learning-copy" class="learning-copy">
+              首次启用时，只在本机分析当前 Agent 有权看到的近 30 天对话。
+            </p>
+            <div id="learning-metrics" class="learning-metrics" hidden></div>
+            <div id="habit-list" class="habit-list" hidden></div>
+            <form id="history-source-form" class="history-source-form" hidden>
+              <label for="history-source">Agent 提供的历史 JSONL</label>
+              <div class="history-source-row">
+                <input id="history-source" name="history_source" type="text" autocomplete="off" placeholder="/本机路径/history.jsonl">
+                <button class="button button-primary" type="submit">分析近 30 天</button>
+              </div>
+              <span>不会搜索其他目录，也不会上传原始对话。</span>
+            </form>
+            <div id="learning-actions" class="learning-actions" hidden>
+              <code id="habits-path" class="habits-path"></code>
+              <button id="confirm-learning" class="button button-primary" type="button">确认并启用策略</button>
+            </div>
+          </div>
         </section>
 
         <section class="summary-grid" aria-label="记忆状态概览">

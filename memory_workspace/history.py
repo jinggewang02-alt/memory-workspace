@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -92,6 +93,8 @@ def import_jsonl(
     adapter: str = "generic-jsonl",
     retention_days: int = 30,
     limit: int = 1000,
+    since: str | datetime | None = None,
+    until: str | datetime | None = None,
     root: Path | None = None,
 ) -> dict[str, Any]:
     clean_adapter = adapter.strip()
@@ -100,13 +103,28 @@ def import_jsonl(
     if retention_days < 1 or retention_days > 30:
         raise MemoryWorkspaceError("retention days 必须在 1–30 之间。")
     rows = _load_rows(path, limit=limit)
+    start = parse_datetime(since) if isinstance(since, str) else since
+    end = parse_datetime(until) if isinstance(until, str) else until
+    for value, label in ((start, "since"), (end, "until")):
+        if value is not None and value.tzinfo is None:
+            raise MemoryWorkspaceError(f"{label} 缺少时区。")
+    if start is not None and end is not None and start >= end:
+        raise MemoryWorkspaceError("history window 的 since 必须早于 until。")
+
     normalized = []
     ignored_roles = 0
+    outside_window = 0
     for row in rows:
         item = _normalize_row(row, adapter=clean_adapter)
         if item is None:
             ignored_roles += 1
         else:
+            occurred = parse_datetime(item["occurred_at"])
+            if (start is not None and occurred < start) or (
+                end is not None and occurred > end
+            ):
+                outside_window += 1
+                continue
             if item["direct_route"] not in {"none", "workspace", "remember", "recall"}:
                 raise MemoryWorkspaceError(
                     f"历史 direct_route 无效：{item['direct_route']}"
@@ -151,5 +169,8 @@ def import_jsonl(
         "duplicate_count": duplicates,
         "rejected_secret_count": rejected_secrets,
         "ignored_non_user_count": ignored_roles,
+        "outside_window_count": outside_window,
+        "window_start": start.isoformat() if start is not None else None,
+        "window_end": end.isoformat() if end is not None else None,
         "event_ids": imported_ids,
     }

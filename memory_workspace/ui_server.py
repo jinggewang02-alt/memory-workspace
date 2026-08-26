@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from . import capture, episodes, policy, writer
+from . import capture, episodes, habits, onboarding, policy, writer
 from .io import MemoryWorkspaceError
 
 
@@ -135,7 +135,7 @@ def build_handler(
     workspaces_root: Path | None,
 ) -> type[BaseHTTPRequestHandler]:
     class ReviewInboxHandler(BaseHTTPRequestHandler):
-        server_version = "MemoryWorkspaceUI/0.8"
+        server_version = "MemoryWorkspaceUI/0.9"
 
         def end_headers(self) -> None:
             self.send_header("Cache-Control", "no-store")
@@ -201,6 +201,26 @@ def build_handler(
                 if target.path == "/api/overview":
                     self._send_json({"ok": True, "overview": _overview(root)})
                     return
+                if target.path == "/api/onboarding":
+                    self._send_json(
+                        {"ok": True, "onboarding": onboarding.get_status(root=root)}
+                    )
+                    return
+                if target.path == "/api/habits":
+                    selected_root = root or capture.capture_path()
+                    report = habits.load_report(root=selected_root)
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "report": report,
+                            "markdown_path": (
+                                str(habits.report_markdown_path(selected_root))
+                                if report is not None
+                                else None
+                            ),
+                        }
+                    )
+                    return
                 if target.path == "/api/candidates":
                     status = parse_qs(target.query).get("status", ["proposed"])[0]
                     if status not in ALLOWED_STATUS:
@@ -226,6 +246,33 @@ def build_handler(
             if self._reject_bad_host() or not self._mutation_authorized():
                 return
             target = urlsplit(self.path)
+            if target.path in {"/api/onboarding/run", "/api/onboarding/confirm"}:
+                try:
+                    payload = _read_json(self)
+                    if target.path == "/api/onboarding/confirm":
+                        result = onboarding.confirm_first_learning(root=root)
+                    else:
+                        history_file_value = _optional_string(payload, "history_file")
+                        adapter = _optional_string(payload, "adapter")
+                        days = payload.get("days", 30)
+                        if not isinstance(days, int) or isinstance(days, bool):
+                            raise MemoryWorkspaceError("days 必须是整数。")
+                        result = onboarding.run_first_learning(
+                            root=root,
+                            history_file=(
+                                Path(history_file_value)
+                                if history_file_value is not None
+                                else None
+                            ),
+                            adapter=adapter,
+                            days=days,
+                        )
+                    self._send_json({"ok": True, "onboarding": result})
+                except MemoryWorkspaceError as exc:
+                    self._send_json(
+                        {"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST
+                    )
+                return
             match = CANDIDATE_ACTION_RE.fullmatch(target.path)
             if not match:
                 self._send_json({"ok": False, "error": "未找到操作。"}, HTTPStatus.NOT_FOUND)
