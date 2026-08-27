@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .home import exact_profile_path_info, init_home as init_memory_home
 from .io import (
     MemoryWorkspaceError,
     atomic_write_json,
@@ -20,17 +21,7 @@ SCHEMA_VERSION = 1
 
 
 def store_path_info() -> tuple[Path, str]:
-    explicit_file = os.environ.get("PMEM_FILE")
-    if explicit_file:
-        return Path(os.path.abspath(os.path.expanduser(explicit_file))), "PMEM_FILE"
-    explicit_dir = os.environ.get("PMEM_DIR")
-    if explicit_dir:
-        directory = Path(os.path.abspath(os.path.expanduser(explicit_dir)))
-        return directory / "store.json", "PMEM_DIR"
-    home = Path.home()
-    if str(home) in {"", "."}:
-        raise MemoryWorkspaceError("无法解析用户目录；请用 PMEM_DIR 指定本机持久目录。")
-    return home / ".personal-memory" / "store.json", "default-home"
+    return exact_profile_path_info()
 
 
 def store_path() -> Path:
@@ -55,6 +46,9 @@ def load_or_new(path: Path) -> dict[str, Any]:
 
 
 def save_store(path: Path, document: dict[str, Any]) -> None:
+    default_path, source = store_path_info()
+    if source == "memory-home" and path.resolve(strict=False) == default_path.resolve(strict=False):
+        init_memory_home(root=path.parents[2])
     document["updated_at"] = int(time.time())
     atomic_write_json(
         path,
@@ -198,6 +192,8 @@ def doctor(path: Path) -> dict[str, Any]:
     warnings: list[str] = []
     if os.environ.get("PMEM_PROJECT_DIR"):
         warnings.append("PMEM_PROJECT_DIR 已弃用并被忽略。")
+    if source in {"PMEM_FILE", "PMEM_DIR"}:
+        warnings.append("正在使用组件级旧路径覆盖；新安装建议统一配置 MEMORY_HOME。")
     if reason:
         warnings.append(reason + "；正式写入将被拒绝。")
     if not writable:

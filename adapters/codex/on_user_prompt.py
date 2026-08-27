@@ -10,7 +10,7 @@ hook 无法调用 LLM，只做确定性的关键词粗判，把该做的事作�
   - 都不命中                              → 静默放行（零打扰）
 
 Codex 约定：本 hook 的 stdout 会作为 context 注入 agent。
-个人档案默认放 ~/.personal-memory；禁止静默回退到项目或临时目录。
+个人档案默认放 ~/.memory-home/personal/profile/exact.json；禁止静默回退到项目或临时目录。
 """
 import json
 import os
@@ -98,7 +98,7 @@ Workspace CLI：{workspace}"""
 
 REMEMBER_TMPL = """[memory-workspace/profile] REMEMBER
 
-用户似乎想记住某个个人信息。请遵循 memory-workspace skill 的 Profile Memory 工作流：
+用户似乎想记住某个个人信息。请遵循 memory-workspace skill 的 Exact Profile 工作流：
 
 1. 先运行：python3 {store} doctor。仅向本机持久目录写入；权限失败或路径临时时停止，绝不回退到项目或 /tmp。
 2. 判断这是**单值**（邮箱/学号/地址/卡号…）还是**结构化条目**（经历/获奖，含公司/岗位/时间等多字段）。
@@ -113,7 +113,7 @@ REMEMBER_TMPL = """[memory-workspace/profile] REMEMBER
 
 IMPORT_FILE_TMPL = """[memory-workspace/profile] IMPORT_FILE
 
-用户想从文件中整理并保存个人信息。请遵循 memory-workspace skill 的 Profile Memory 工作流：
+用户想从文件中整理并保存个人信息。请遵循 memory-workspace skill 的 Exact Profile 工作流：
 
 1. 不绑定文件格式或解析工具；使用当前 Agent 环境最合适的现有能力读取文件。无法读取时如实说明。
 2. 只提取用户需要保存的个人事实，保留原始拼写、数字和标点；不确定内容标为"待确认"。
@@ -125,7 +125,7 @@ IMPORT_FILE_TMPL = """[memory-workspace/profile] IMPORT_FILE
 
 RECALL_TMPL = """[memory-workspace/profile] RECALL
 
-用户明确想调用个人信息，或正在进行通常需要本人事实的个人材料/表单任务。请遵循 memory-workspace skill 的 Profile Memory 工作流：
+用户明确想调用个人信息，或正在进行通常需要本人事实的个人材料/表单任务。请遵循 memory-workspace skill 的 Exact Profile 工作流：
 
 1. 先判断任务是否真的需要用户本人的事实；若只是通用模板、代码或示例人物，忽略本指令。
 2. 根据当前场景判断需要哪些字段。字段明确时 search 相关 key；范围较广时先 list 查看 key 概览。
@@ -143,7 +143,7 @@ ASYNC_CAPTURE_TMPL = """[memory-workspace] ASYNC_CAPTURE
 1. 先完成并返回用户当前 Query；不得等待记忆判断，不得在主链路调用模型做捕获分类。
 2. 仅当当前环境支持回答后仍能安全存活的后台任务或 Subagent，且当前没有队列 Worker 时，才派发一个 Worker 批量处理 pending；不要为每个 event 重复创建 Subagent，也不要等待 Worker。
 3. Worker 先运行 `python3 {capture} worker plan --json`，按 conversation Episode 批量读取；不要把单条关键词当成持久化结论。
-4. Worker 用 `episode show` 获取证据，并用 `episode resolve` 生成 ignore/session/project/profile 结果；project/profile 只产生候选，不得直接写正式 Workspace 或 Profile Memory。`feedback_only` Episode 用 `episode resolve --decision session` 记录反馈并关闭，不得重复生成候选。
+4. Worker 用 `episode show` 获取证据，并用 `episode resolve` 生成 ignore/session/project/profile 兼容结果；project/profile 只产生候选，不得直接写正式 Workspace 或 Personal Memory。`feedback_only` Episode 用 `episode resolve --decision session` 记录反馈并关闭，不得重复生成候选。
 5. 正式写入仍需用户审阅，并由单一 Writer 通过现有 workspace.py/store.py 流程完成。"""
 
 
@@ -153,6 +153,25 @@ def _event_string(event, *keys):
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
+
+
+def exact_profile_hint():
+    """Mirror the store resolver without importing the package on every hook run."""
+    explicit_file = os.environ.get("PMEM_FILE")
+    if explicit_file:
+        return os.path.abspath(os.path.expanduser(explicit_file))
+    explicit_dir = os.environ.get("PMEM_DIR")
+    if explicit_dir:
+        return os.path.join(os.path.abspath(os.path.expanduser(explicit_dir)), "store.json")
+    memory_home = os.environ.get("MEMORY_HOME") or os.path.join(
+        os.path.expanduser("~"), ".memory-home"
+    )
+    return os.path.join(
+        os.path.abspath(os.path.expanduser(memory_home)),
+        "personal",
+        "profile",
+        "exact.json",
+    )
 
 
 def enqueue_async_capture(event, prompt, *, direct_route):
@@ -214,8 +233,8 @@ def main():
     if not prompt.strip():
         sys.exit(0)
 
-    # 个人档案默认跨项目通用（放 HOME），不回退到当前项目。
-    store_hint = os.path.join(os.path.expanduser("~"), ".personal-memory", "store.json")
+    # 个人档案属于统一 Memory Home 的 Personal 子层，不回退到当前项目。
+    store_hint = exact_profile_hint()
 
     is_remember = hit(prompt, REMEMBER_SIGNALS)
     is_file = hit(prompt, FILE_SIGNALS)

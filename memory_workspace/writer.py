@@ -67,10 +67,10 @@ def _apply_profile(
     path = profile_path or profile.store_path()
     health = profile.doctor(path)
     if not health["filesystem_writable"]:
-        raise MemoryWorkspaceError("Profile Memory 目录不可写；未执行正式写入。")
+        raise MemoryWorkspaceError("Exact Profile 目录不可写；未执行正式写入。")
     if health["transient_risk"] and os.environ.get("PMEM_ALLOW_TRANSIENT") != "1":
         raise MemoryWorkspaceError(
-            "Profile Memory 位于临时或工程目录；请先配置持久 PMEM_FILE/PMEM_DIR。"
+            "Exact Profile 位于临时或工程目录；请先配置持久 MEMORY_HOME，或兼容的 PMEM_FILE/PMEM_DIR。"
         )
 
     store = profile.load_store(path)
@@ -89,7 +89,7 @@ def _apply_profile(
 
     readback = profile.get_item(path, key)
     if readback.get("type") != "single" or readback.get("value") != content:
-        raise MemoryWorkspaceError("Profile Memory 逐字读回校验失败；未生成 application receipt。")
+        raise MemoryWorkspaceError("Exact Profile 逐字读回校验失败；未生成 application receipt。")
     capture.mark_candidate_applied(
         candidate_id,
         actor=actor,

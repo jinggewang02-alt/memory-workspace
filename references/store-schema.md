@@ -5,11 +5,14 @@
 ## 文件位置
 
 按优先级（`store.py` 的 `store_path()`）：
-1. `PMEM_FILE` —— 完整文件路径（最高）
-2. `PMEM_DIR` —— 目录，文件名固定 `store.json`
-3. 默认 `~/.personal-memory/store.json`（本机用户目录，跨项目通用）
+1. `PMEM_FILE` —— 兼容覆盖：完整文件路径（最高）
+2. `PMEM_DIR` —— 兼容覆盖：目录，文件名固定 `store.json`
+3. `${MEMORY_HOME}/personal/profile/exact.json`（设置统一根目录时）
+4. 默认 `~/.memory-home/personal/profile/exact.json`（本机用户目录，跨项目通用）
 
-`PMEM_PROJECT_DIR` 已弃用并被忽略，避免个人档案被意外写入项目或短期沙箱。使用 `doctor` 检查实际路径；临时目录默认拒绝写入。每次成功覆盖前会在同目录保留上一版 `store.json.bak`。
+`PMEM_PROJECT_DIR` 已弃用并被忽略，避免个人档案被意外写入项目或短期沙箱。新安装优先
+配置 `MEMORY_HOME`，而不是分别配置组件目录。使用 `doctor` 检查实际路径；临时目录默认
+拒绝写入。每次成功覆盖前会在同目录保留上一版文件的 `.bak`。
 
 ## 结构
 
@@ -45,7 +48,9 @@
 
 ## 持久化限制
 
-默认路径只有在 `HOME` 对应用户本机或已挂载的持久卷时才可跨会话保留。远程容器或临时沙箱无法访问宿主机时，必须用 `PMEM_DIR` / `PMEM_FILE` 指向已挂载的持久目录；skill 不会假装已永久保存。
+默认路径只有在 `HOME` 对应用户本机或已挂载的持久卷时才可跨会话保留。远程容器或
+临时沙箱无法访问宿主机时，优先用 `MEMORY_HOME` 指向已挂载的持久目录；也可使用兼容的
+`PMEM_DIR` / `PMEM_FILE`。Skill 不会假装已永久保存。
 
 ## 为什么用 JSON 而非纯 md 作底层
 

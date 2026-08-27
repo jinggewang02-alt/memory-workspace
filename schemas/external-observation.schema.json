@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/external-observation.schema.json",
+  "title": "Connector-owned external observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_id",
+    "event_type",
+    "occurred_at",
+    "observed_at",
+    "source",
+    "object",
+    "actors",
+    "content",
+    "provenance",
+    "routing",
+    "privacy"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "observation_id": {"type": "string", "pattern": "^obs_[A-Za-z0-9_-]+$"},
+    "event_type": {
+      "enum": [
+        "asset.discovered",
+        "asset.updated",
+        "message.created",
+        "relationship.observed",
+        "membership.changed"
+      ]
+    },
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "connector_id",
+        "adapter",
+        "adapter_version",
+        "identity_mode",
+        "workspace_id"
+      ],
+      "properties": {
+        "provider": {"type": "string", "minLength": 1},
+        "connector_id": {"type": "string", "minLength": 1},
+        "adapter": {"type": "string", "minLength": 1},
+        "adapter_version": {"type": "string", "minLength": 1},
+        "identity_mode": {"enum": ["user", "bot"]},
+        "workspace_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+      }
+    },
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_type",
+        "external_id",
+        "parent_external_id",
+        "canonical_url",
+        "content_type",
+        "attributes"
+      ],
+      "properties": {
+        "object_type": {"enum": ["chat", "message", "document", "person"]},
+        "external_id": {"type": "string", "minLength": 1},
+        "parent_external_id": {"type": ["string", "null"]},
+        "canonical_url": {"type": ["string", "null"]},
+        "content_type": {"type": ["string", "null"]},
+        "attributes": {"type": "object"}
+      }
+    },
+    "actors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["external_id", "actor_type", "display_name"],
+        "properties": {
+          "external_id": {"type": "string", "minLength": 1},
+          "actor_type": {"enum": ["user", "bot", "unknown"]},
+          "display_name": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "text_excerpt", "content_hash", "attachment_refs"],
+      "properties": {
+        "title": {"type": ["string", "null"]},
+        "text_excerpt": {"type": ["string", "null"]},
+        "content_hash": {"type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$"},
+        "attachment_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_ref", "command_category", "time_coverage"],
+      "properties": {
+        "snapshot_ref": {"type": "string", "minLength": 1},
+        "command_category": {"type": "string", "minLength": 1},
+        "time_coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end", "complete"],
+          "properties": {
+            "start": {"type": "string", "format": "date-time"},
+            "end": {"type": "string", "format": "date-time"},
+            "complete": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "project_confidence", "reason_codes", "candidate_eligible"],
+      "properties": {
+        "project_id": {"type": ["string", "null"]},
+        "project_confidence": {"type": "number"},
+        "reason_codes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "candidate_eligible": {"type": "boolean"}
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "expires_at", "profile_write_allowed"],
+      "properties": {
+        "classification": {"enum": ["local_metadata", "local_content", "sensitive"]},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "profile_write_allowed": {"const": false}
+      }
+    }
+  }
+}

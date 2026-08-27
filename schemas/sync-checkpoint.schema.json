@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/sync-checkpoint.schema.json",
+  "title": "Connector incremental sync checkpoint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "connector_id",
+    "provider",
+    "workspace_id",
+    "stream_id",
+    "last_attempt_at",
+    "last_success_at",
+    "trigger",
+    "coverage",
+    "high_watermark",
+    "snapshot_ref",
+    "error_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "connector_id": {"type": "string", "minLength": 1},
+    "provider": {"type": "string", "minLength": 1},
+    "workspace_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "stream_id": {"enum": ["baseline", "daily_incremental", "event_reconciliation"]},
+    "last_attempt_at": {"type": "string", "format": "date-time"},
+    "last_success_at": {"type": "string", "format": "date-time"},
+    "trigger": {"enum": ["first_enable", "agent_start", "idle", "manual", "event_reconciliation"]},
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "complete"],
+      "properties": {
+        "start": {"type": "string", "format": "date-time"},
+        "end": {"type": "string", "format": "date-time"},
+        "complete": {"type": "boolean"}
+      }
+    },
+    "high_watermark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["occurred_at", "external_id"],
+      "properties": {
+        "occurred_at": {"type": "string", "format": "date-time"},
+        "external_id": {"type": ["string", "null"]}
+      }
+    },
+    "snapshot_ref": {"type": "string", "minLength": 1},
+    "error_boundary": {"type": ["string", "null"]}
+  }
+}

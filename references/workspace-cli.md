@@ -8,15 +8,18 @@ personal facts continue to use `scripts/store.py`.
 
 Workspace roots resolve in this order:
 
-1. `MWORK_WORKSPACES_DIR` when explicitly set;
-2. `~/.personal-memory/workspaces` by default.
+1. `MWORK_WORKSPACES_DIR` when explicitly set as a compatibility override;
+2. `${MEMORY_HOME}/workspaces` when `MEMORY_HOME` is set;
+3. `~/.memory-home/workspaces` by default.
 
 The CLI refuses writes under a temporary directory. Tests may explicitly set
 `MWORK_ALLOW_TRANSIENT=1`; production workflows must not use that override.
 
-Run `doctor` before the first write in a new environment:
+Initialize Memory Home, then run `doctor` before the first Workspace write in a
+new environment:
 
 ```bash
+python3 <skill-dir>/scripts/home.py init
 python3 <skill-dir>/scripts/workspace.py doctor
 ```
 

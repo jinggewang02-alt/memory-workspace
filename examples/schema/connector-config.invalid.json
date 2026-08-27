@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "connector_id": "lark",
+  "provider": "lark",
+  "workspace_id": "product-memory",
+  "enabled": true,
+  "identity_mode": "user",
+  "activation": {
+    "explicit": false,
+    "actor": "automatic_detection",
+    "activated_at": "2026-08-27T02:00:00Z",
+    "deactivated_at": null
+  },
+  "capabilities": ["message_history"],
+  "baseline": {
+    "lookback_days": 30,
+    "max_active_chats": 30,
+    "initial_messages_per_chat": 20,
+    "expanded_messages_per_chat": 50
+  },
+  "schedule": {
+    "trigger": "agent_start_or_idle",
+    "minimum_interval_hours": 24,
+    "event_acceleration": false
+  },
+  "review": {
+    "candidate_review_required": true,
+    "profile_write_allowed": true
+  },
+  "updated_at": "2026-08-27T02:00:00Z"
+}

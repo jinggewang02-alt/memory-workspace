@@ -235,7 +235,8 @@ def render_text(args: argparse.Namespace, result: Any) -> None:
             "counts: "
             f"sources={result['counts']['source_notes']} "
             f"pages={result['counts']['wiki_pages']} "
-            f"operations={result['counts']['operations']}"
+            f"operations={result['counts']['operations']} "
+            f"connectors={result['counts']['connectors']}"
         )
     elif name == "source.ingest":
         if result["duplicate"]:

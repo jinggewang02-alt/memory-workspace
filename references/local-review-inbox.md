@@ -4,7 +4,7 @@ Status: MVP v0.3
 
 The Review Inbox is a local, derived view over asynchronous capture candidates.
 It is not a second memory store and it does not write directly to Workspace
-Markdown or Profile Memory JSON.
+Markdown or Exact Profile JSON.
 
 ## Start
 

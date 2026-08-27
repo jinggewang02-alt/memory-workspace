@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/memory-home.schema.json",
+  "title": "Memory Home manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "home", "layout", "defaults"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "home": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "created_at"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "created_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["personal", "workspaces", "system"],
+      "properties": {
+        "personal": {"const": "personal"},
+        "workspaces": {"const": "workspaces"},
+        "system": {"const": "system"}
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "timezone", "review_mode"],
+      "properties": {
+        "language": {"type": "string", "minLength": 2},
+        "timezone": {"type": "string", "minLength": 1},
+        "review_mode": {"const": "proposed_changes"}
+      }
+    }
+  }
+}

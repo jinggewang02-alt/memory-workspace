@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "observation_id": "obs_lark_message_001",
+  "event_type": "message.created",
+  "occurred_at": "2026-08-27T01:30:00Z",
+  "observed_at": "2026-08-27T02:00:00Z",
+  "source": {
+    "provider": "lark",
+    "connector_id": "lark",
+    "adapter": "lark-cli",
+    "adapter_version": "1.0.89",
+    "identity_mode": "user",
+    "workspace_id": "product-memory"
+  },
+  "object": {
+    "object_type": "message",
+    "external_id": "om_example",
+    "parent_external_id": "oc_example",
+    "canonical_url": null,
+    "content_type": "text",
+    "attributes": {}
+  },
+  "actors": [],
+  "content": {
+    "title": null,
+    "text_excerpt": "Unreviewed content.",
+    "content_hash": null,
+    "attachment_refs": []
+  },
+  "provenance": {
+    "snapshot_ref": "connected/lark/messages/example.json",
+    "command_category": "im.chat-messages-list",
+    "time_coverage": {
+      "start": "2026-08-26T02:00:00Z",
+      "end": "2026-08-27T02:00:00Z",
+      "complete": true
+    }
+  },
+  "routing": {
+    "project_id": null,
+    "project_confidence": 0.0,
+    "reason_codes": [],
+    "candidate_eligible": true
+  },
+  "privacy": {
+    "classification": "local_content",
+    "expires_at": "2026-09-03T02:00:00Z",
+    "profile_write_allowed": true
+  }
+}

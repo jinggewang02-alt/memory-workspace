@@ -11,6 +11,10 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from uuid import uuid4
 
+from .home import (
+    capture_path_info as memory_home_capture_path_info,
+    init_home as init_memory_home,
+)
 from .io import (
     MemoryWorkspaceError,
     nearest_existing_parent,
@@ -75,13 +79,7 @@ def parse_datetime(value: str) -> datetime:
 
 
 def capture_path_info() -> tuple[Path, str]:
-    explicit = os.environ.get("MWORK_CAPTURE_DIR")
-    if explicit:
-        return Path(os.path.abspath(os.path.expanduser(explicit))), "MWORK_CAPTURE_DIR"
-    home = Path.home()
-    if str(home) in {"", "."}:
-        raise MemoryWorkspaceError("无法解析用户目录；请用 MWORK_CAPTURE_DIR 指定持久目录。")
-    return home / ".memory-workspace" / "capture", "default-home"
+    return memory_home_capture_path_info()
 
 
 def capture_path() -> Path:
@@ -284,6 +282,11 @@ def enqueue_event(
     if direct_route not in DIRECT_ROUTES:
         raise MemoryWorkspaceError("direct route 必须是 none/workspace/remember/recall。")
     _reject_secrets(message, assistant_summary)
+
+    if root is None:
+        default_root, source = capture_path_info()
+        if source == "memory-home":
+            init_memory_home(root=default_root.parents[1])
 
     created = now_utc()
     occurred = _occurred_at(occurred_at, fallback=created)

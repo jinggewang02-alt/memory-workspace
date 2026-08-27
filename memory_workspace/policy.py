@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from .capture import capture_path, format_datetime, now_utc
+from .capture import format_datetime, now_utc
 from .episodes import explicit_save, group_events
+from .home import init_home as init_memory_home, personal_learning_path_info
 from .io import MemoryWorkspaceError, write_bytes_once
 from .schema import load_json_object, validate
 
@@ -36,7 +37,7 @@ SIGNAL_PATTERNS = {
 
 
 def _root(root: Path | None) -> Path:
-    return root or capture_path()
+    return root or personal_learning_path_info()[0]
 
 
 def _policy_path(policy_id: str, root: Path | None = None) -> Path:
@@ -187,6 +188,9 @@ def build_policy_document(
 def build_policy(events: list[dict[str, Any]], *, root: Path | None = None) -> dict[str, Any]:
     from .feedback import summarize_feedback
 
+    if root is None:
+        learning_root = personal_learning_path_info()[0]
+        init_memory_home(root=learning_root.parents[1])
     document = build_policy_document(events, feedback_summary=summarize_feedback(root=root))
     path = _policy_path(document["policy_id"], root)
     _write_once(path, document, POLICY_SCHEMA, "memory policy")

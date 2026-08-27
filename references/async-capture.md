@@ -17,9 +17,9 @@ user receives the answer
     ↓ optional background / next idle run
 Worker resolves event
     ↓
-ignore / session / project Candidate / profile Candidate
+ignore / session / Workspace Candidate / Personal Candidate
     ↓ user review
-single Writer updates Workspace or Profile Memory
+single Writer updates Workspace or Personal Memory
 ```
 
 `scripts/capture.py` manages staging and review. It never writes canonical Wiki
@@ -27,8 +27,9 @@ pages or `store.json`.
 
 ## Storage layout
 
-The default root is `~/.memory-workspace/capture`; override it with
-`MWORK_CAPTURE_DIR` only when the destination is a durable local directory.
+The default root is `~/.memory-home/system/capture`; override the unified root
+with `MEMORY_HOME`, or use the legacy component override `MWORK_CAPTURE_DIR`
+only when the destination is a durable local directory.
 In JSON output, top-level `ok` means the command executed successfully;
 `doctor.result.status` separately reports `OK`, `WARNING`, or an unusable path.
 
@@ -39,10 +40,21 @@ capture/
 ├── candidates/             # one immutable semantic proposal per Episode
 ├── candidate-decisions/    # one immutable owner decision per Candidate
 ├── applications/           # verified single-Writer receipts
-├── policies/               # immutable draft policies
-├── policy-activations/     # owner activation receipts
 └── feedback/               # append-only review and recall outcomes
 ```
+
+Query habits and policies are durable Personal Memory, not queue state:
+
+```text
+~/.memory-home/personal/learning/
+├── query-habits.json
+├── query-habits.md
+├── policies/
+└── policy-activations/
+```
+
+When an explicit `root` is supplied by a legacy test or embedded adapter, the
+old root-relative paths remain supported.
 
 One-file-per-event uses exclusive creation, so concurrent Workers cannot both
 resolve the same event. A losing Worker must stop when `event resolve` reports
@@ -123,8 +135,9 @@ python3 <skill-dir>/scripts/capture.py episode resolve <episode-id> \
   --json
 ```
 
-Propose a Profile Candidate only for durable cross-project information. Mark
-exact identifiers, addresses, contact data, and similar values sensitive:
+Propose a legacy Profile Candidate only for durable cross-project exact facts.
+It maps to the Personal `exact_profile` destination. Mark exact identifiers,
+addresses, contact data, and similar values sensitive:
 
 ```bash
 python3 <skill-dir>/scripts/capture.py episode resolve <episode-id> \
@@ -158,7 +171,7 @@ python3 <skill-dir>/scripts/capture.py candidate approve <candidate-id> \
 
 For a project Candidate, the referenced Workspace must already exist, the
 relative path must not escape it, and the Workspace id must match the Candidate
-hint. A Profile target uses `profile:<key>` and must match its key hint.
+hint. A legacy Profile target uses `profile:<key>` and must match its key hint.
 
 After approval, invoke the single Writer:
 
@@ -177,6 +190,12 @@ The command uses the existing canonical path:
 It records a schema v2 application receipt only after canonical verification.
 The receipt includes Writer kind, optional Workspace Operation id, and named
 checks so a UI can display the result without parsing prose.
+
+Candidate v3 renames persistent scopes to `workspace` and `personal`, then uses
+`target_hint.personal_section` to distinguish Exact Profile, Personal Work,
+relationships, preferences, and learning. The current reference Writer applies
+only legacy Workspace and Exact Profile targets; Personal Work Markdown remains
+a reviewable protocol target, not an implemented automatic write path.
 
 `mark-applied` remains a low-level compatibility command for an external Writer
 that has already performed and verified the canonical write. Do not use it to
@@ -208,7 +227,7 @@ The Codex hook keeps async capture off by default. Enable one of:
 
 ```bash
 export MWORK_ASYNC_CAPTURE=signals  # only broad potential-value signals
-export MWORK_ASYNC_CAPTURE=all      # all prompts without a direct Workspace/Profile route
+export MWORK_ASYNC_CAPTURE=all      # all prompts without a direct Workspace/Exact Profile route
 export MWORK_ASYNC_CAPTURE=adaptive # all prompts as observations; decide later by Episode + Policy
 ```
 
@@ -224,7 +243,7 @@ export MWORK_WORKSPACE_ID=<workspace-id>
 to dispatch a background Worker without waiting. Set it to `0` when an external
 daemon or UI consumes the queue.
 
-In `adaptive` mode, explicit Workspace/Profile routes are stored as
+In `adaptive` mode, explicit Workspace/Exact Profile compatibility routes are stored as
 observation-only feedback and cannot create another Candidate. Other Agent
 environments should implement the same event/resolution/candidate
 contract rather than copying Codex-specific hook names. If they cannot run

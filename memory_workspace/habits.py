@@ -17,6 +17,7 @@ from .capture import (
     parse_datetime,
 )
 from .io import MemoryWorkspaceError, atomic_write_json, atomic_write_text
+from .home import init_home as init_memory_home, personal_learning_path_info
 from .schema import load_json_object, validate
 
 
@@ -24,12 +25,18 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 HABITS_SCHEMA = PACKAGE_ROOT / "schemas" / "query-habits.schema.json"
 
 
-def report_json_path(root: Path) -> Path:
-    return root / "learning" / "query-habits.json"
+def _learning_root(root: Path | None = None) -> Path:
+    if root is not None:
+        return root / "learning"
+    return personal_learning_path_info()[0]
 
 
-def report_markdown_path(root: Path) -> Path:
-    return root / "learning" / "query-habits.md"
+def report_json_path(root: Path | None = None) -> Path:
+    return _learning_root(root) / "query-habits.json"
+
+
+def report_markdown_path(root: Path | None = None) -> Path:
+    return _learning_root(root) / "query-habits.md"
 
 
 def _conversation_id(event: dict[str, Any]) -> str:
@@ -230,10 +237,15 @@ def render_markdown(document: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def write_report(document: dict[str, Any], *, root: Path) -> dict[str, Any]:
+def write_report(
+    document: dict[str, Any], *, root: Path | None = None
+) -> dict[str, Any]:
     errors = validate(document, load_json_object(HABITS_SCHEMA))
     if errors:
         raise MemoryWorkspaceError("query habits 校验失败：" + "; ".join(errors))
+    if root is None:
+        learning_root = personal_learning_path_info()[0]
+        init_memory_home(root=learning_root.parents[1])
     atomic_write_json(
         report_json_path(root),
         document,
@@ -251,7 +263,7 @@ def write_report(document: dict[str, Any], *, root: Path) -> dict[str, Any]:
     }
 
 
-def load_report(*, root: Path) -> dict[str, Any] | None:
+def load_report(*, root: Path | None = None) -> dict[str, Any] | None:
     path = report_json_path(root)
     if not path.is_file():
         return None
@@ -325,7 +337,7 @@ def load_agent_semantic_report(
     return document
 
 
-def confirm_report(*, root: Path) -> dict[str, Any]:
+def confirm_report(*, root: Path | None = None) -> dict[str, Any]:
     document = load_report(root=root)
     if document is None:
         raise MemoryWorkspaceError("还没有可确认的 query habits 报告。")

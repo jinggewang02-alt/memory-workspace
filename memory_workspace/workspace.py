@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from .home import (
+    init_home as init_memory_home,
+    workspaces_path_info as memory_home_workspaces_path_info,
+)
 from .io import (
     MemoryWorkspaceError,
     atomic_write_json,
@@ -36,9 +40,6 @@ REQUIRED_DIRECTORIES = (
     "raw/inbox",
     "connected",
     "config/projects",
-    "personal/captures",
-    "personal/reflections",
-    "personal/preferences",
     "wiki/sources",
     "wiki/projects",
     "wiki/topics",
@@ -46,6 +47,11 @@ REQUIRED_DIRECTORIES = (
     "wiki/syntheses",
     ".llm-wiki/index",
     ".llm-wiki/operations",
+)
+LEGACY_PERSONAL_DIRECTORIES = (
+    "personal/captures",
+    "personal/reflections",
+    "personal/preferences",
 )
 REQUIRED_FILES = ("llm-wiki.json", "wiki/index.md", "wiki/log.md")
 
@@ -55,15 +61,7 @@ def now_iso() -> str:
 
 
 def workspaces_path_info() -> tuple[Path, str]:
-    explicit = os.environ.get("MWORK_WORKSPACES_DIR")
-    if explicit:
-        return Path(os.path.abspath(os.path.expanduser(explicit))), "MWORK_WORKSPACES_DIR"
-    home = Path.home()
-    if str(home) in {"", "."}:
-        raise MemoryWorkspaceError(
-            "无法解析用户目录；请用 MWORK_WORKSPACES_DIR 指定本机持久目录。"
-        )
-    return home / ".personal-memory" / "workspaces", "default-home"
+    return memory_home_workspaces_path_info()
 
 
 def workspaces_path() -> Path:
@@ -185,20 +183,24 @@ def init_workspace(
         raise MemoryWorkspaceError("workspace name 不能为空。")
     if review_mode not in {"direct", "proposed_changes"}:
         raise MemoryWorkspaceError("review mode 必须是 direct 或 proposed_changes。")
+    if root is None:
+        default_root, source = workspaces_path_info()
+        if source == "memory-home":
+            init_memory_home(root=default_root.parent)
     workspace = workspace_path(slug, root)
     if workspace.exists():
         raise MemoryWorkspaceError(f"workspace 已存在，拒绝覆盖：{workspace}")
     transient_ok = allow_transient()
     created_at = now_iso()
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "scope": "workspace",
         "workspace": {"id": slug, "name": name.strip(), "created_at": created_at},
         "defaults": {
             "language": language,
             "timezone": timezone_name,
             "review_mode": review_mode,
         },
-        "profile_memory": {"enabled": True, "provider": "personal-memory"},
     }
     errors = validate(manifest, load_json_object(WORKSPACE_SCHEMA))
     if errors:
@@ -520,7 +522,15 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
     warnings: list[str] = []
     checks: list[str] = []
 
-    for relative in REQUIRED_DIRECTORIES:
+    manifest_path = workspace / "llm-wiki.json"
+    required_directories = REQUIRED_DIRECTORIES
+    if manifest_path.is_file():
+        try:
+            if load_json_object(manifest_path).get("schema_version") == 1:
+                required_directories += LEGACY_PERSONAL_DIRECTORIES
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
+    for relative in required_directories:
         if not (workspace / relative).is_dir():
             errors.append(f"missing directory: {relative}")
     for relative in REQUIRED_FILES:
@@ -528,7 +538,6 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
             errors.append(f"missing file: {relative}")
     checks.append("required-layout")
 
-    manifest_path = workspace / "llm-wiki.json"
     if manifest_path.is_file():
         try:
             manifest_errors = validate(
@@ -608,6 +617,13 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
             errors.append(f"index: {exc}")
     checks.append("derived-index-schema")
 
+    from .connectors import validate_workspace_connector_files
+
+    connector_errors = validate_workspace_connector_files(workspace, slug)
+    errors.extend(f"connector: {error}" for error in connector_errors)
+    checks.append("optional-connector-schemas")
+    connector_configs = sorted((workspace / "config" / "connectors").glob("*.json"))
+
     if transient_reason(workspace):
         warnings.append("workspace is under a transient directory (allowed only for explicit tests)")
     return {
@@ -621,6 +637,7 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
             "source_notes": len(source_notes),
             "wiki_pages": len(markdown_files),
             "operations": len(operation_files),
+            "connectors": len(connector_configs),
         },
     }
 
@@ -633,6 +650,8 @@ def doctor(*, root: Path | None = None) -> dict[str, Any]:
     warnings: list[str] = []
     if reason:
         warnings.append(reason + "；正式写入将被拒绝。")
+    if source == "MWORK_WORKSPACES_DIR":
+        warnings.append("正在使用组件级旧路径覆盖；新安装建议统一配置 MEMORY_HOME。")
     if not writable:
         warnings.append(f"现有父目录不可写：{parent}")
     return {

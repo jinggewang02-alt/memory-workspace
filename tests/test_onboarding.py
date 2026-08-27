@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from memory_workspace import capture, habits, onboarding, policy
 from memory_workspace.history_sources import discover_history_source
@@ -121,6 +122,41 @@ class FirstLearningTests(unittest.TestCase):
         )
         self.assertTrue(repeated["deduplicated"])
         self.assertEqual(repeated["run"]["run_id"], result["run"]["run_id"])
+
+    def test_default_onboarding_splits_personal_learning_from_system_state(self) -> None:
+        self.write_rows()
+        memory_home = self.base / "memory-home"
+        environment = os.environ.copy()
+        environment["MEMORY_HOME"] = str(memory_home)
+        environment["MWORK_ALLOW_TRANSIENT"] = "1"
+        environment["MEMORY_HOME_ALLOW_TRANSIENT"] = "1"
+        for key in ("MWORK_CAPTURE_DIR", "PMEM_FILE", "PMEM_DIR"):
+            environment.pop(key, None)
+
+        with patch.dict(os.environ, environment, clear=True):
+            result = onboarding.run_first_learning(
+                history_file=self.history_path,
+                adapter="synthetic-host-adapter",
+                current_time=datetime(2026, 8, 25, 12, 0, tzinfo=timezone.utc),
+            )
+
+        self.assertEqual(
+            Path(result["run"]["habits_markdown_path"]),
+            memory_home / "personal" / "learning" / "query-habits.md",
+        )
+        self.assertTrue(
+            (memory_home / "system" / "capture" / "onboarding" / "state.json").is_file()
+        )
+        self.assertTrue(
+            (
+                memory_home
+                / "personal"
+                / "learning"
+                / "policies"
+                / f"{result['run']['policy_id']}.json"
+            ).is_file()
+        )
+        self.assertFalse((memory_home / "system" / "capture" / "learning").exists())
 
     def test_confirmation_activates_policy_and_marks_markdown_confirmed(self) -> None:
         self.write_rows()

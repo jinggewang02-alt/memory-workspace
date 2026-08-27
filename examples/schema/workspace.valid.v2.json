@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "scope": "workspace",
+  "workspace": {
+    "id": "research-notes",
+    "name": "Research Notes",
+    "created_at": "2026-08-27T08:00:00Z"
+  },
+  "defaults": {
+    "language": "zh-CN",
+    "timezone": "Asia/Shanghai",
+    "review_mode": "proposed_changes"
+  }
+}

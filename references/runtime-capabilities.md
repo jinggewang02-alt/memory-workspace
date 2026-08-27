@@ -16,7 +16,7 @@ The local implementation needs all of the following for full operation:
 
 The probe also reports `capture_learning` storage and a separate
 `history_access` capability. History access is optional for ordinary
-Workspace/Profile use. When configured, it is only a handoff contract for
+Workspace/Personal use. When configured, it is only a handoff contract for
 normalized JSONL that the current Agent is already authorized to see; it is
 not permission to discover product databases or other accounts.
 

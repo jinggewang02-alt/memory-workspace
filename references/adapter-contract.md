@@ -1,82 +1,107 @@
-# Adapter Contract（领域适配层设计）
+# Adapter Contract（领域连接器契约）
 
-Status: Draft v0.1
-Updated: 2026-08-26
+Status: Draft v0.2
+Updated: 2026-08-27
 
-本文档定义"通用记忆内核 + 领域适配器"的分层与适配器契约。用于回答两个问题：
+本文档定义“通用记忆内核 + 可选领域连接器”的边界。连接器负责发现外部证据，内核
+负责解析、候选、审阅和正式写入。安装 Memory Workspace 本身不等于启用任何外部连接器。
 
-1. 接入一个新生态（飞书 / Slack / Notion）时，如何建立**基准记忆**（baseline）。
-2. 生态中的**新产物 / 决策**如何及时进入已有的捕获与审阅闭环。
+## 1. 两条独立输入链路
 
-## 1. 分层
-
-```
-┌──────────────────────────────────────────────┐
-│  领域适配层（adapters/lark, adapters/slack …）│
-│  把各生态的资产与事件翻译成内核的候选与事件       │
-├──────────────────────────────────────────────┤
-│  通用记忆内核（memory_workspace core）          │
-│  Workspace（项目知识）+ Profile Memory（事实）  │
-│  + capture / candidate / writer / policy       │
-└──────────────────────────────────────────────┘
+```text
+当前 Agent 对话 ──> Capture Event ──┐
+                                     ├─> Resolver ─> Candidate ─> Review ─> Writer
+已启用的外部连接器 ─> Observation ──┘
 ```
 
-- **内核不感知具体生态**：它只认识 Workspace、Profile、capture-event、candidate 这些通用结构。`data-model.md` 已固定这一点。
-- **适配器不落自己的库**：适配层只做"翻译"，产出的候选必须经过用户审阅后，由内核的唯一 writer 写入。适配器自己持有的任何中间数据都视为可丢弃缓存。
+- `Capture Event` 表示当前或历史 Agent Query，服务于用户习惯学习和轻量异步捕获。
+- `External Observation` 表示聊天、消息、文档、人物等外部证据，必须保留快照和覆盖范围。
+- 两者可以指向同一项目，但不能互相冒充，也不能绕过审阅直接修改正式记忆。
 
-## 2. 适配器契约
+## 2. 激活是硬边界
 
-一个领域适配器只需提供三个能力，命名与现有 `onboarding` / `history_sources` 对齐：
+每个连接器必须有独立的 `Connector Config`，并满足：
 
-| 能力 | 接口 | 作用 |
+- 用户通过明确操作启用；配置中 `activation.explicit=true` 且 `enabled=true`；
+- 仅安装 Skill、存在某个 CLI、出现平台名称或 Agent 正在该平台中运行，均不构成授权；
+- 未配置或停用时，状态必须返回 `skipped`，读取计划必须是空数组；
+- 连接器只使用配置中声明的身份、范围、窗口和限额；权限不足时停止，不能扩大范围变通；
+- 停用保留审计记录和既有快照，但禁止后续外部读取。
+
+当前实现只支持显式启用的 `lark` provider。其他生态可以复用此契约，但不能被当作已经实现。
+
+## 3. 连接器能力
+
+| 能力 | 产出 | 作用 |
 |---|---|---|
-| `discover` | `discover() -> assets` | 盘查：这个生态里"我"有哪些资产（群 / 联系人 / 项目 / 待办） |
-| `baseline` | `baseline() -> candidates` | 把盘查结果转成**基准记忆候选**，交内核审阅 |
-| `stream` | `stream() -> capture-events` | 把新事件（@我的消息、审批、会议决策）转成 `capture-event` |
+| `status` | 激活状态与边界 | 不探测外部 CLI，不读取外部数据 |
+| `discover` | 有界资产清单 | 发现聊天、文档和外部对象；发现本身不生成长期记忆 |
+| `baseline` | 快照与 Observation | 首次启用时建立有时间、数量上限的证据基线 |
+| `incremental` | 快照与 Observation | 从最近成功 checkpoint 到当前时间读取增量 |
+| `event acceleration` | 提醒或待核对事件 | 可选加速器；不能代替每日 user-identity 对账 |
 
-约束：
+当前 `scripts/connectors.py plan` 只生成结构化读取计划，不执行外部命令。宿主 Agent 必须
+按计划逐项执行、保存不可变快照，并在成功后单独推进 checkpoint。
 
-- 每个能力都必须是**只读盘查**，不得搜索当前 Agent 无权访问的范围（沿用 `history_sources.py` 的边界语义）。
-- `baseline` 与 `stream` 的产出都走内核已有路径：`proposed → approved → applied`，不直接写正式记忆。
-- 适配器用一个稳定字符串标识（如 `lark`、`slack`），存入 `onboarding-state` 的 `source.adapter` 字段（该字段已存在）。
+## 4. 统一 Observation
 
-## 3. 痛点 1：初始化基准记忆
+适配器把外部结果规范化为 `external-observation.schema.json`，至少保留：
 
-现有 `onboarding` 只针对"用户 Query 习惯"。扩成"领域初始化"：
+- provider、connector、adapter 版本、user/bot 身份和 Workspace；
+- 外部对象类型、稳定 ID、父对象、参与者和最小内容摘要；
+- 原始 snapshot 引用、命令类别、时间覆盖和完整性；
+- 项目解析结果、置信度、原因码和候选资格；
+- 隐私分类、暂存期限，以及 `profile_write_allowed=false`（兼容字段，语义为禁止
+  Exact Profile 写入）。
 
+外部人物关系可以支持 Workspace `entities/`、项目材料或 Personal Work 的待审提案。
+连接器证据绝不自动写入 Exact Profile；只有用户明确要求保存某个个人事实时，才走
+Exact Profile 的逐字写入流程。
+
+规范化后的 Candidate 新实现优先使用 schema v3：
+
+- `scope=workspace`：路由到一个明确 Workspace；
+- `scope=personal`：再通过 `target_hint.personal_section` 路由到 `work`、
+  `relationships`、`preferences`、`learning` 或 `exact_profile`；
+- 连接器只允许提议带证据引用的 Personal Work 内容，不能选择 `exact_profile`；
+- 旧 schema v1/v2 的 `project/profile` 仍由兼容 Writer 读取，但不是新协议的命名方式。
+
+## 5. 基线与每日增量
+
+首次基线和每日增量共用以下状态机：
+
+```text
+未启用 ──> skipped
+   │ 用户明确 enable
+   ▼
+待基线 ──> 近 30 天有界计划 ──> 快照成功 ──> baseline checkpoint
+                                            │ 到达最小间隔
+                                            ▼
+                                      每日增量计划
+                                            │
+                                  新快照 + checkpoint
 ```
-onboarding（内核）
-  └─ adapter.baseline()
-       1. discover：用 lark-cli 盘查群 / 联系人 / 项目 / 待办
-       2. 生成候选，分类为：
-          - Profile：精确个人事实（写入 Profile Memory）
-          - Entities：谁是谁（写入 Workspace entities/）
-          - Projects：我参与的项目及关系（写入 Workspace projects/）
-          - Inbox：等待我处理的事项（写入 Workspace，或直接进 review inbox）
-       3. 用户审阅批准后，由 writer 落库
-```
 
-基准记忆的价值在于：之后"某某是谁""我在做哪些项目"这类问题，先从本地记忆答，而不是每次重新调 lark-cli 搜索。
+- 首次默认回看 30 天、最多 30 个活跃会话、每个会话先取 20 条，必要时最多扩到 50 条。
+- 每日增量从最近一次成功 `coverage.end` 开始；默认最小间隔 24 小时。
+- 新聊天、新参与者和新文档只是待解析证据，不等于值得记忆。
+- 只有新证据跨过项目解析、重要性和新颖性门槛，才生成 Candidate。
+- checkpoint 只能在不可变快照真实存在后推进，失败或不完整范围必须保留准确边界。
 
-## 4. 痛点 2：后续产物 / 决策及时记入
+具体 Lark 字段和命令边界见 [lark-connector.md](lark-connector.md)。
 
-内核已有 `capture-event → candidate → 审阅 → writer` 的闭环。缺的是触发源。适配器提供 `stream`：
+## 6. 内核与 UI 边界
 
-- 事件源：lark-cli 的 `event` 域（`lark-cli event consume`）或轻量定时盘查。
-- 翻译规则：一条 @我的消息 = 一个候选待办；一个审批/会议决策 = 一个项目结论候选。
-- 沿用内核 async-capture 的分级：`ignore / session / project / profile`，只有后两者生成候选。
+- 连接器：只读发现、快照、规范化 Observation。
+- Resolver / Compiler：把人、文档、聊天、决策和执行解析到项目脉络。
+- Candidate：给出 proposed patch、证据引用、原因码和新颖性。
+- UI：展示连接器状态、最近覆盖、候选依据，并捕获批准/拒绝意图。
+- Writer：唯一可以在批准后改写正式 Workspace 或 Personal Memory 的组件。
 
-这一层不做"实时强一致"，只做"异步、可审阅、少持久化"。
+## 7. 非目标
 
-## 5. 落地顺序
-
-1. 先把本契约与 `data-model.md`、`async-capture.md` 对齐（本文件即第一步）。
-2. 实现 `lark` 适配器的 `discover` + `baseline`（解决痛点 1）。
-3. 实现 `lark` 适配器的 `stream`（解决痛点 2）。
-4. 后续生态（slack / notion）复用同一契约，只新增适配器。
-
-## 6. 非目标
-
-- 不做跨生态的统一身份（open_id / slack_id 各生态独立，映射关系作为 Workspace 内容存，不硬编码）。
-- 不让适配器绕过审阅直接写正式记忆。
-- 不做实时同步；一切仍是"少持久化、先审阅"的本地优先语义。
+- 不因安装 Skill 自动扫描外部账号。
+- 不批量导出所有联系人、群、消息或文档。
+- 不把“联系人”当成已经确认的项目人物关系。
+- 不把 bot 事件流当作用户全部会话的完整记录。
+- 不追求实时强一致；优先异步、可审阅、可停止和可追溯。

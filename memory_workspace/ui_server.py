@@ -207,14 +207,13 @@ def build_handler(
                     )
                     return
                 if target.path == "/api/habits":
-                    selected_root = root or capture.capture_path()
-                    report = habits.load_report(root=selected_root)
+                    report = habits.load_report(root=root)
                     self._send_json(
                         {
                             "ok": True,
                             "report": report,
                             "markdown_path": (
-                                str(habits.report_markdown_path(selected_root))
+                                str(habits.report_markdown_path(root))
                                 if report is not None
                                 else None
                             ),

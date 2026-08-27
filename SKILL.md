@@ -1,24 +1,28 @@
 ---
 name: memory-workspace
-description: 维护本机优先、以项目为中心的个人知识库，并精确保存和召回跨项目个人档案。用户要求创建或检查 Workspace/Wiki/知识库、收录文件或证据、查询已有项目知识、维护来源链，或明确要求记住、修改、调用个人资料时使用；为本人创建简历、自我介绍、申请材料或填写表单而需要个人事实时也使用。还支持把本地历史或实时 Query 轻量入队，从后来明确保存的会话轨迹学习个人 Policy，再由后台 Worker 或 Subagent 按 Episode 异步生成待审候选。项目证据进入 Workspace，邮箱、学号、地址和结构化经历等精确事实进入 Profile Memory；两者不得静默混用。
+description: 维护本机优先的统一 Memory Home：Personal Memory 保存精确个人资料与跨项目工作脉络，Workspaces 保存项目证据和 Wiki，System 保存异步队列与审计状态。用户要求创建、检查或查询个人记忆、Workspace/Wiki/知识库，收录证据，记住或调用个人资料，或为本人制作简历、自我介绍、申请和表单时使用。还支持历史 Query 习惯学习、异步 Candidate 审阅和显式启用的外部连接器。
 ---
 
 # Memory Workspace
 
-将所有脚本路径解析为相对于本 `SKILL.md` 所在目录。Workspace 操作使用
-`scripts/workspace.py`；跨项目精确个人档案使用 `scripts/store.py`；异步暂存与候选审阅
-使用 `scripts/capture.py`。不要用对话记忆代替文件存储。
+将所有脚本路径解析为相对于本 `SKILL.md` 所在目录。统一根目录默认是
+`~/.memory-home/`：初始化和迁移使用 `scripts/home.py`，Workspace 使用
+`scripts/workspace.py`，精确个人资料使用 `scripts/store.py`，异步暂存与候选审阅使用
+`scripts/capture.py`。不要用对话记忆代替文件存储。
 
 ## 先判断数据属于哪里
 
 | 内容 | 存储 | 例子 |
 |---|---|---|
-| 项目证据与知识 | Workspace | 文档、聊天快照、来源说明、项目决策、专题总结 |
-| 用户在某个项目中的想法 | Workspace `personal/` | 项目担忧、假设、反思、待确认偏好 |
-| 跨项目精确个人事实 | Profile Memory | 邮箱、学号、地址、分版本账号、结构化经历 |
+| 精确个人资料 | Personal `profile/` | 邮箱、学号、地址、分版本账号、结构化经历 |
+| 跨项目工作脉络 | Personal `work/` | 当前职责、项目组合、跨项目协作者、长期主题和时间线 |
+| 用户偏好和 Query 习惯 | Personal `preferences/` / `learning/` | 已确认偏好、待确认模式、触发 Policy |
+| 项目证据与知识 | `workspaces/<id>/` | 文档、聊天快照、来源说明、项目决策、执行进展 |
+| 运行和审计状态 | `system/` | Capture、Candidate、Operation、索引、Connector checkpoint |
 
-不得把整个 Profile Memory 复制进 Workspace，也不得从项目材料中自动提取并写回
-个人档案。只有用户明确要求保存个人事实时才写 Profile Memory。
+Workspace 是以事情为中心的事实层，Personal Work 是以用户为中心的跨 Workspace 投影。
+Personal Work 只链接 Workspace 证据或 owner capture，不复制外部原文。只有用户明确要求
+保存个人事实时才写 `personal/profile/exact.json`。
 
 ## 共同安全边界
 
@@ -52,6 +56,18 @@ description: 维护本机优先、以项目为中心的个人知识库，并精�
 5. 当前环境不能执行探针时，不得声称已经本地保存。只能保持只读，或使用用户已经
    配置且提供同等操作契约的 API/工具适配器。
 
+首次正式写入前检查并初始化统一根目录：
+
+```bash
+python3 <skill-dir>/scripts/home.py doctor --json
+python3 <skill-dir>/scripts/home.py status --json
+python3 <skill-dir>/scripts/home.py init --json
+```
+
+旧版目录存在时，先运行 `migration-plan`。只有用户明确要求迁移后才运行 `migrate`；它
+只能复制和哈希校验，不得删除 `~/.personal-memory/` 或 `~/.memory-workspace/`。完整边界见
+[references/memory-home.md](references/memory-home.md)。
+
 探针只检查可观察能力，不创建测试文件，也不能预先证明宿主沙箱已经批准第一次真实
 写入。完整状态协议和降级规则见
 [references/runtime-capabilities.md](references/runtime-capabilities.md)。
@@ -74,8 +90,9 @@ python3 <skill-dir>/scripts/capture.py onboarding status --json
 - 当前环境不能读取历史时：停在 `needs_history_source`，允许用户以后导入文件；不得把
   “看不到”说成“最近 30 天没有对话”。
 
-首次学习会生成两份待审产物：本机 `learning/query-habits.md` 是人可读的 Query 习惯
-草稿，`policies/policy_*.json` 是机器使用的记忆触发 Policy 草稿。前者描述相对于用户
+首次学习会在 `~/.memory-home/personal/learning/` 生成两份待审产物：
+`query-habits.md` 是人可读的 Query 习惯草稿，`policies/policy_*.json` 是机器使用的
+记忆触发 Policy 草稿。前者描述相对于用户
 自身反复出现的交互模式，后者仍只把后来明确保存的 Episode 当正样本；二者不得混为
 一套宽松的自动记忆规则。低成本基线生成后，有语义分析能力的 Agent 可在完全相同的
 证据范围内提交 `onboarding refine --file <report.json>`，但不得扩大时间、账号或事件
@@ -85,6 +102,30 @@ python3 <skill-dir>/scripts/capture.py onboarding status --json
 “自动”指首次启用后由 Agent 在回答关键路径之外启动；不是静默扩大读取权限，也不
 保证每个宿主都存在安装后钩子。宿主支持安装后/后台任务时可立即执行，否则在第一次
 加载本 Skill 时执行一次。
+
+### 可选外部证据：仅在明确启用 Lark Connector 后
+
+Query 习惯学习与外部项目证据同步是两件事。首次加载本 Skill、检测到 `lark-cli`、用户
+提到飞书、当前 Agent 具有飞书工具，均不得自动启用或读取飞书。先只读检查本地状态：
+
+```bash
+python3 <skill-dir>/scripts/connectors.py status <workspace-id> --provider lark --json
+```
+
+- 未配置或 `enabled=false`：停止 Lark 流程；不得探测 `lark-cli`、请求权限、登录或读取。
+- 只有用户明确要求把飞书作为该 Workspace 的证据源时，才可运行
+  `connectors.py enable-lark <workspace-id> --json`。
+- 启用命令只写显式本地配置，不读取飞书。随后运行 `connectors.py plan` 获取有界计划；
+  `commands=[]` 时不得执行外部命令。
+- 计划为 `due` 时，只能使用 user identity、返回的时间窗、数量上限、字段和只读权限。
+  认证或 scope 不足时停止并报告准确边界，不得换账号或扩大读取范围。
+- 每项原始结果先保存为不可变快照；只有快照存在且覆盖范围明确时才推进 checkpoint。
+- 外部人物、会话和文档先进入 Workspace Observation / Source；可另外提出带来源链接的
+  Personal Work Candidate，但不得自动写入精确个人资料。
+
+默认首次基线回看 30 天、最多选择 30 个活跃会话；每日增量从上次成功 checkpoint
+开始且默认至少间隔 24 小时。计划器当前不直接执行 `lark-cli`。完整命令、字段、bot
+事件限制和实现状态见 [references/lark-connector.md](references/lark-connector.md)。
 
 ## Workspace 工作流
 
@@ -169,13 +210,14 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
    pending，由下次启动、空闲任务、UI 或手动 `capture.py` 处理。
 3. Worker 先按 conversation 和时间间隔聚合 Episode，再解析为 `ignore`、`session`、
    `project` 或 `profile`。只有后两者产生 Candidate；一个 Episode 默认只产生一个
-   Candidate，Worker 不得直接写正式 Workspace 或 Profile Memory。
+   Candidate，Worker 不得直接写正式 Workspace 或 Personal Memory。
 4. Candidate 由用户批准后，才运行 `capture.py candidate apply <id>`。该单一 Writer
-   会通过 Workspace Operation 或 Profile Memory 正式写入，完成读回/check 后自动生成
-   application receipt；Writer 失败时 Candidate 保持 `approved`，不得手工伪造 applied。
+   会通过 Workspace Operation 或 Exact Profile 兼容写入流程完成正式写入，完成读回/
+   check 后自动生成 application receipt；Writer 失败时 Candidate 保持 `approved`，
+   不得手工伪造 applied。
 5. 异步队列保存本机明文暂存，默认关闭，拒绝密码、Token、Cookie、私钥等秘密，并
    应定期清理过期原始事件。
-6. 历史学习只把后来出现明确 Workspace/Profile 保存行为的 Episode 当正样本；普通
+6. 历史学习只把后来出现明确 Workspace/Exact Profile 保存行为的 Episode 当正样本；普通
    高频问法不是正样本。Policy 先生成 draft，必须由用户激活；拒绝和“抑制相似项”
    会让下一版 Policy 更保守。
 
@@ -184,6 +226,10 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 且值得用户审阅的项目结论或个人事实才生成 Candidate。完整协议、命令和跨 Agent 降级见
 [references/async-capture.md](references/async-capture.md)；历史导入、Episode、个人 Policy、
 反馈和离线回放见 [references/adaptive-policy.md](references/adaptive-policy.md)。
+
+当前 Worker/Writer 仍兼容旧 `project/profile` Candidate：分别映射 Workspace 与 Personal
+Exact Profile。新协议 v3 使用 `workspace/personal`，其中 Personal Work Markdown 的自动
+提议和应用尚未完成；不得把目录骨架或 Schema 就绪说成已经能够自动维护个人工作脉络。
 
 ### 本地候选审阅台
 
@@ -195,12 +241,12 @@ python3 <skill-dir>/scripts/ui.py
 
 它只监听本机，展示候选、判断原因和脱敏证据，并将批准/忽略操作交回现有 Capture
 审阅契约。批准后，用户可再明确点击“写入正式记忆”，由同一个单一 Writer 完成正式
-写入、校验和回执；浏览器代码不直接编辑 Workspace 或 Profile Memory。新环境仍须先
+写入、校验和回执；浏览器代码不直接编辑 Workspace 或 Personal Memory。新环境仍须先
 完成能力探针，无浏览器或不能保持本地进程时继续使用 `scripts/capture.py`，不得为 UI
 擅自安装运行时。
 详细边界见 [references/local-review-inbox.md](references/local-review-inbox.md)。
 
-## Profile Memory 工作流
+## 精确个人资料工作流
 
 写入前先运行：
 
@@ -237,6 +283,6 @@ python3 <skill-dir>/scripts/store.py get 快递地址
   写入完成且已有读回/check 证据时，才能标记 `applied`。
 - 首次历史学习：`onboarding run` 成功、`query-habits.md` 可读且 Policy 仍为 draft 时
   只算 `awaiting_review`；只有用户确认后才算 `completed`，不得自动确认推断习惯。
-- Profile Memory 写入：命令成功，并且 `get` 返回值与用户原文逐字一致。
+- 精确个人资料写入：命令成功，并且 `get` 返回值与用户原文逐字一致。
 - 查询：结论与来源、推断、用户观点和缺口边界清楚。
 - 未完成的 MVP 能力：明确报告边界，不用手工伪装成功。

@@ -51,6 +51,11 @@ class WorkspaceCliTests(unittest.TestCase):
         workspace = self.init_workspace()
         self.assertTrue((workspace / "llm-wiki.json").is_file())
         self.assertTrue((workspace / "raw" / "inbox").is_dir())
+        manifest = json.loads((workspace / "llm-wiki.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["schema_version"], 2)
+        self.assertEqual(manifest["scope"], "workspace")
+        self.assertNotIn("profile_memory", manifest)
+        self.assertFalse((workspace / "personal").exists())
 
         listing = self.result_json("list", "--json")["result"]
         self.assertEqual(len(listing), 1)

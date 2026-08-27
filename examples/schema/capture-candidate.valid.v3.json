@@ -1,0 +1,44 @@
+{
+  "schema_version": 3,
+  "candidate_id": "cand_personal_work_001",
+  "fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "trigger_event_id": null,
+  "episode_id": null,
+  "evidence_event_ids": [],
+  "scope": "personal",
+  "kind": "work_context",
+  "content": "The user currently owns the cross-project memory workflow.",
+  "confidence": 0.82,
+  "sensitivity": "normal",
+  "proposed_at": "2026-08-27T08:00:00Z",
+  "proposed_by": "personal-work-resolver",
+  "policy_version": null,
+  "policy_rule": null,
+  "trigger_phase": "daily_incremental",
+  "target_hint": {
+    "workspace_id": null,
+    "personal_section": "work",
+    "exact_key": null
+  },
+  "project_id": null,
+  "claim_type": "responsibility",
+  "subject_refs": ["person:self", "workspace:memory-workspace"],
+  "evidence_refs": [
+    {
+      "ref_type": "external_observation",
+      "ref": "obs_lark_message_001",
+      "snapshot_ref": "workspaces/product-memory/connected/lark/messages/2026-08-27.json"
+    }
+  ],
+  "temporal_scope": {
+    "start": "2026-08-01T00:00:00Z",
+    "end": null
+  },
+  "novelty_score": 0.72,
+  "reason_codes": ["cross_workspace_responsibility", "owner_review_required"],
+  "proposed_patch": {
+    "operation": "update",
+    "target_path": "personal/work/portfolio.md",
+    "summary": "Add a reviewable responsibility linked to Workspace evidence."
+  }
+}

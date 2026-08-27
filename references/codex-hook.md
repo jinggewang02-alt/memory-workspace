@@ -39,23 +39,24 @@ export MWORK_ASYNC_CAPTURE_HINT=1
 ```
 
 - `signals`：只把可能具有跨轮次价值的非显式记忆消息入队；
-- `all`：把所有没有明确 Workspace/Profile 路由的消息入队，隐私和存储成本更高；
+- `all`：把所有没有明确 Workspace/Exact Profile 路由的消息入队，隐私和存储成本更高；
 - `adaptive`：把每条 Query 当成本地短期观察，之后由 Episode + 已激活的个人 Policy
   异步判断；明确写入只作为反馈，不能再生成 Candidate；
 - `off`：默认值，不留存异步事件；
 - `MWORK_ASYNC_CAPTURE_HINT=0`：只入队，不向 Agent 注入后台派发提示，适合外部 Worker/UI。
 
-`signals` / `all` 下，显式 Workspace/Profile 写入和召回不重复进入异步队列；`adaptive`
+`signals` / `all` 下，显式 Workspace/Exact Profile 写入和召回不重复进入异步队列；`adaptive`
 下会留下 observation-only 事件供 Policy 学习，但不会重复生成 Candidate。完整 Worker、
 Candidate 审阅和跨 Agent 降级协议见 [async-capture.md](async-capture.md)，历史学习见
 [adaptive-policy.md](adaptive-policy.md)。
 
 ## 持久化
 
-默认档案是 `~/.personal-memory/store.json`。配置后运行：
+默认档案是 `~/.memory-home/personal/profile/exact.json`。配置后运行：
 
 ```bash
 python3 <skill-dir>/scripts/store.py doctor
 ```
 
-如果路径位于临时目录，必须改用指向本机持久目录的 `PMEM_DIR` 或 `PMEM_FILE`。权限失败时不得回退到项目目录或 `/tmp`。
+如果路径位于临时目录，优先用 `MEMORY_HOME` 指向本机持久目录，也可使用兼容的
+`PMEM_DIR` 或 `PMEM_FILE`。权限失败时不得回退到项目目录或 `/tmp`。

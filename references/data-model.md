@@ -1,7 +1,7 @@
 # LLM Wiki Data Model
 
-Status: Draft v0.3
-Updated: 2026-08-24
+Status: Draft v0.5
+Updated: 2026-08-27
 
 This document defines the data contract shared by an LLM Wiki workspace, its
 agent Skill, and its user interface. It extracts the reusable model from the
@@ -44,32 +44,40 @@ Passwords, one-time codes, private keys, and seed phrases are prohibited data.
 
 ## 2. Mental model
 
-There are two storage scopes:
+Memory Home has two sibling knowledge scopes and one control plane:
 
 ```text
-User
-├── Profile Memory Store             cross-workspace, exact personal facts
-├── Capture Queue                    expiring events and reviewed candidates
-└── Workspaces[]                     one private knowledge environment each
-    ├── Projects[]
-    ├── Sources[] → Snapshots[]
-    ├── Wiki Pages[] → Claims[]
-    ├── Personal Authoring[]
-    ├── Source Mappings[]
-    └── Operations[]
+Memory Home
+├── Personal Memory                  user-centered, cross-Workspace
+│   ├── Exact Profile                lossless personal facts
+│   ├── Personal Work                responsibilities, portfolio, people, themes, timeline
+│   ├── Preferences                  confirmed and tentative kept separate
+│   └── Learning                     Query habits and reviewable Policy
+├── Workspaces[]                     project/domain-centered evidence and Wiki
+│   ├── Sources[] → Snapshots[]
+│   ├── Wiki Pages[] → Claims[]
+│   ├── Owner Notes[]
+│   └── Source Mappings[]
+└── System                           control state, not long-term knowledge
+    ├── Capture Queue → Candidates
+    ├── Operations and receipts
+    ├── Disposable indexes
+    └── Connector Configs and Checkpoints
 ```
 
-The Profile Memory Store and Workspace Personal Authoring are deliberately
-different:
+Personal Memory and Workspaces are parallel but linked:
 
 | Store | Purpose | Example | Canonical form |
 |---|---|---|---|
-| Profile Memory Store | Exact facts reused across workspaces | an email address or a structured experience entry | JSON |
-| Personal Authoring | Thoughts tied to a workspace or project | a concern, hypothesis, reflection, or preference | Markdown |
+| Exact Profile | Exact facts reused across Workspaces | an email address or a structured experience entry | JSON |
+| Personal Work | User-centered synthesis across Workspaces | current responsibilities, collaborators, themes | Markdown |
+| Workspace | Evidence and maintained knowledge about one project/domain | decisions, status, artifacts, source notes | Files + Markdown |
+| Owner Notes | User viewpoint tied to one Workspace | a project concern, hypothesis, or judgment | Markdown |
 
-A workspace MAY read selected Profile Memory fields for an authorized task. It
-MUST NOT copy the entire profile into the workspace or silently write newly
-observed values back to Profile Memory.
+A Workspace MAY read selected Exact Profile fields for an authorized task.
+Personal Work pages MAY link to Workspace claims or owner captures but MUST NOT
+copy source dumps. A Workspace MUST NOT silently write observed values into
+Exact Profile.
 
 ## 3. Canonical and derived data
 
@@ -80,11 +88,17 @@ views and MUST be rebuildable.
 |---|---|---|
 | Manually added source | Original file under `raw/` | Immutable |
 | Connector result | Timestamped snapshot under `connected/` | Immutable |
+| Connector activation | JSON under `config/connectors/` | Explicit mutation only |
+| External observation | JSON referencing an immutable connector snapshot | Immutable staging |
+| Connector checkpoint | JSON under `.llm-wiki/connectors/` | Advance after successful snapshot only |
 | Source description | Markdown source note under `wiki/sources/` | Maintained |
 | Project knowledge | Markdown under `wiki/projects/` | Maintained |
 | Topic, entity, synthesis | Markdown under `wiki/` | Maintained |
 | Owner capture or reflection | Markdown under `personal/` | Append or explicitly edit |
-| Exact personal fact | JSON in the external Profile Memory Store | Explicit mutation only |
+| Exact personal fact | JSON under `personal/profile/exact.json` | Explicit mutation only |
+| Personal Work synthesis | Markdown under `personal/work/` | Reviewed maintained projection |
+| Personal preference | Markdown under `personal/preferences/` | Confirmed and tentative separate |
+| Query habit and Policy | Files under `personal/learning/` | Draft then explicit activation |
 | Source authorization | YAML under `config/` | Explicit mutation only |
 | Search/UI index | SQLite, JSON, or another generated cache | Derived and disposable |
 | Agent proposal | Operation manifest plus file diff | Immutable after proposal |
@@ -97,37 +111,40 @@ and generated indexes, and writes through reviewed operations.
 ## 4. Recommended workspace layout
 
 ```text
-workspace/
-├── llm-wiki.json
-├── raw/
-│   └── inbox/
-├── connected/
-│   └── <connector>/
-│       ├── snapshots/
-│       └── manifests/
-├── config/
-│   └── projects/
+~/.memory-home/
+├── memory-home.json
 ├── personal/
-│   ├── captures/
-│   ├── reflections/
-│   └── preferences/
-├── wiki/
 │   ├── index.md
-│   ├── log.md
-│   ├── sources/
-│   ├── projects/
-│   ├── topics/
-│   ├── entities/
-│   └── syntheses/
-└── .llm-wiki/
-    ├── index/                       generated, disposable
-    └── operations/                  review and audit manifests
+│   ├── profile/exact.json
+│   ├── work/{overview.md,portfolio.md,people/,themes/,timeline/}
+│   ├── preferences/{confirmed.md,tentative.md}
+│   ├── learning/{query-habits.md,policies/,policy-activations/}
+│   └── captures/
+├── workspaces/
+│   └── <workspace-id>/
+│       ├── llm-wiki.json
+│       ├── raw/inbox/
+│       ├── connected/<connector>/{snapshots/,manifests/}
+│       ├── config/{projects/,connectors/}
+│       ├── wiki/{sources/,projects/,topics/,entities/,syntheses/}
+│       └── .llm-wiki/{index/,operations/,connectors/}
+└── system/
+    ├── capture/
+    ├── operations/
+    ├── index/
+    ├── connectors/
+    └── migrations/
 ```
 
-The Profile Memory Store lives outside any workspace so that it is durable and
-reusable across projects. Its path MUST be resolvable and diagnosable. A Skill
-MUST reject accidental writes to a temporary directory unless the operation is
-an explicit test.
+Connector directories are optional. A generic Workspace without a connector
+MUST remain fully valid and MUST NOT probe an external CLI. An external read is
+allowed only when the matching Connector Config records an explicit activation
+and `enabled=true`.
+
+All three layers share one durable root. `MEMORY_HOME` may override it. Legacy
+component variables remain compatibility overrides, but new installations
+SHOULD avoid split roots. A Skill MUST reject accidental writes to a temporary
+directory unless the operation is an explicit test.
 
 ## 5. Shared conventions
 
@@ -174,7 +191,8 @@ the reference serialization so the local Skill remains dependency-free; other
 implementations MAY expose an equivalent YAML projection.
 
 ```yaml
-schema_version: 1
+schema_version: 2
+scope: workspace
 workspace:
   id: example-workspace
   name: "Example Workspace"
@@ -183,12 +201,11 @@ defaults:
   language: zh-CN
   timezone: Asia/Shanghai
   review_mode: proposed_changes
-profile_memory:
-  enabled: true
-  provider: personal-memory
 ```
 
-The manifest MUST NOT contain credentials or connector access tokens.
+The manifest MUST NOT contain credentials or connector access tokens. A v2
+Workspace does not own Personal Memory and therefore has no nested
+`profile_memory` configuration. Schema v1 remains readable for compatibility.
 
 ### 6.2 Project
 
@@ -353,7 +370,8 @@ of truth.
 ### 6.8 Personal authoring record
 
 Personal Authoring preserves the owner's wording and its relationship to a
-workspace or project.
+Workspace or project. It is canonically stored under Memory Home `personal/`,
+not inside an individual Workspace.
 
 ```yaml
 schema_version: 1
@@ -374,11 +392,13 @@ Initial `kind` values are:
 A repeated pattern MUST NOT become a confirmed preference without explicit
 owner confirmation.
 
-### 6.9 Profile Memory item
+### 6.9 Exact Profile item
 
-Profile Memory stores exact personal facts outside the workspace. JSON is the
-canonical form because it supports exact strings and structured one-to-many
-records. Markdown export is a view.
+Exact Profile stores exact personal facts at
+`personal/profile/exact.json`. It is a Personal Memory sublayer parallel to
+Workspaces, rather than a separate product or a directory owned by one
+Workspace. JSON is canonical because it supports exact strings and structured
+one-to-many records. Markdown export is a view.
 
 ```json
 {
@@ -419,7 +439,7 @@ records. Markdown export is a view.
 }
 ```
 
-Profile Memory rules:
+Exact Profile rules:
 
 - Values MUST round-trip exactly; no spelling, punctuation, capitalization, or
   numeric normalization is allowed without owner confirmation.
@@ -436,7 +456,8 @@ Profile Memory rules:
   guessed.
 
 Schema version 1 of the existing `personal-memory` store remains compatible as
-an input adapter:
+an input adapter and can be copied into Memory Home through the migration
+workflow:
 
 ```json
 {
@@ -534,19 +555,70 @@ should be persisted.
 }
 ```
 
-A Worker resolves each event exactly once as `ignore`, `session`, `project`, or
-`profile`. Only `project` and `profile` create a Candidate. A Candidate is not a
-ChangeSet and MUST NOT modify canonical data. It becomes writable only after a
-separate owner decision identifies the target. A single Writer then uses the
-existing Workspace Operation or Profile Memory workflow and records a verified
-application receipt. Receipt schema v2 identifies `profile_single` or
-`workspace_operation`, carries the Operation id when applicable, and lists the
-checks that passed. Presentation clients may invoke this Writer after a separate
-explicit apply action, but must never edit canonical files themselves.
+A Worker resolves legacy events exactly once as `ignore`, `session`, `project`,
+or `profile`. Only `project` and `profile` create a Candidate. In Candidate v3,
+their canonical scopes are named `workspace` and `personal`; Personal is then
+routed to Exact Profile, Personal Work, Preferences, or Learning. A Candidate
+is not a ChangeSet and MUST NOT modify canonical data. It becomes writable only
+after a separate owner decision identifies the target. A single Writer then
+uses a canonical Workspace Operation or Personal write workflow and records a
+verified application receipt. Receipt schema v2 currently identifies
+`profile_single` or `workspace_operation`, carries the Operation id when
+applicable, and lists the checks that passed. Presentation clients may invoke
+this Writer after a separate explicit apply action, but must never edit
+canonical files themselves.
+
+The reference Writer currently applies the legacy Exact Profile and Workspace
+targets. Candidate v3 defines the broader routing contract, but automatic
+materialization of Personal Work Markdown is not implemented yet.
 
 The queue MUST remain optional, local, expiring, and independent of a particular
 Agent's Subagent API. Environments without durable background execution process
 pending events on a later startup, idle cycle, UI visit, or explicit sync.
+
+### 6.13 Connector Config, External Observation, and Candidate v2/v3
+
+A Connector Config records a provider-specific opt-in. It is not an access
+token and MUST contain no credential. Absence or `enabled=false` means that the
+provider is outside the current read scope.
+
+An External Observation is immutable staging derived from a connector snapshot.
+It keeps the provider object ID, actors, minimal content, snapshot reference,
+coverage and project-routing state together. Discovery alone SHOULD set
+`candidate_eligible=false`; a Resolver may change eligibility only with an
+explainable project match and material new evidence.
+
+Candidate schema v2 adds project-context fields while keeping schema v1 valid:
+
+| Field | Purpose |
+|---|---|
+| `project_id` | Resolved project, or `null` while unresolved |
+| `claim_type` | Context, relationship, decision, action, artifact, status, or profile fact |
+| `subject_refs` | Stable projects, entities, artifacts, or tasks affected |
+| `evidence_refs` | Capture Event, External Observation, or Source Note references |
+| `temporal_scope` | Time window to which the proposed claim applies |
+| `novelty_score` | Evidence-level change signal, not a truth probability |
+| `reason_codes` | Reviewable reasons for creating the Candidate |
+| `proposed_patch` | Intended target and operation; still not authorization to write |
+
+Connector evidence always has `profile_write_allowed=false`. A Candidate may
+propose a `profile_fact` only through an independent, explicit owner request,
+not because an external source happened to contain personal data.
+
+Candidate schema v3 replaces the legacy `project/profile` scope names with
+`workspace/personal` and adds an explicit Personal destination hint:
+
+| Field | Purpose |
+|---|---|
+| `scope` | `workspace` or `personal` |
+| `target_hint.workspace_id` | Required routing hint for Workspace knowledge |
+| `target_hint.personal_section` | `exact_profile`, `work`, `relationships`, `preferences`, or `learning` |
+| `target_hint.exact_key` | Exact key when the destination is Exact Profile |
+
+An external observation may support a Personal Work proposal when it reveals
+user responsibilities, collaborators, or cross-Workspace themes, but it MUST
+retain evidence references and go through review. It MUST NOT authorize an
+Exact Profile write.
 
 ## 7. Relationships
 
@@ -555,12 +627,15 @@ Project ──authorizes──> Source Mapping ──resolves──> External Re
                                                 └──captures──> Snapshot
 Source Note ──describes──> Source or Snapshot
 Wiki Page ──contains──> Claim ──supported by/challenged by──> Source Note
-Project ──has──> Personal Authoring ──supports──> Owner View
-Task ──selectively reads──> Profile Memory Item
+Personal Memory ──contains──> Personal Authoring ──supports──> Owner View
+Task ──selectively reads──> Exact Profile Item
+Personal Work ──links to──> Workspace Claim and Owner Capture
 Operation ──proposes/applies──> Canonical files
 UI Index ──derives from──> Canonical files and Operation manifests
 Capture Event ──resolves to──> ignore / session / Candidate
-Approved Candidate ──routes through──> single Writer and Operation/Profile workflow
+Enabled Connector ──captures──> Snapshot ──normalizes──> External Observation
+External Observation ──resolves to──> project / ignore / Candidate
+Approved Candidate ──routes through──> single Writer and Workspace/Personal workflow
 ```
 
 ## 8. Operation semantics
@@ -575,11 +650,13 @@ Approved Candidate ──routes through──> single Writer and Operation/Profi
 
 ### Connector refresh
 
-1. Resolve a Project and its authorized Source Mappings.
-2. Retrieve only the minimum useful fields and coverage window.
-3. Save new immutable snapshots and manifests.
-4. Create or update Source notes.
-5. Update materially affected Project pages and record limitations.
+1. Confirm that the provider's Connector Config is explicitly activated and enabled.
+2. Generate a bounded baseline or incremental plan from the latest successful checkpoint.
+3. Resolve a Project and its authorized Source Mappings.
+4. Retrieve only the minimum useful fields and coverage window.
+5. Save new immutable snapshots and manifests, then normalize Observations.
+6. Advance the checkpoint only after the snapshot exists.
+7. Create Candidates or Source notes; update Project pages only through reviewed writes.
 
 ### Query and synthesis
 
@@ -594,7 +671,7 @@ Approved Candidate ──routes through──> single Writer and Operation/Profi
 2. Link it to Projects when relevant.
 3. Promote a preference to confirmed only after explicit confirmation.
 
-### Profile Memory write
+### Exact Profile write
 
 1. Diagnose the actual persistent store path.
 2. Classify the value as `single` or `entries`.
@@ -612,7 +689,7 @@ its storage layer when not explicit:
 |---|---|---|
 | `public_template` | Empty schemas, templates, fictional examples | Allowed |
 | `workspace_private` | Real project knowledge and mappings | Excluded by default |
-| `personal_sensitive` | Profile Memory and personal authoring | Always excluded by default |
+| `personal_sensitive` | Personal Memory, including Exact Profile and personal authoring | Always excluded by default |
 | `prohibited_secret` | Passwords, OTPs, private keys, seed phrases | Reject storage |
 
 A public export MUST include only framework files, templates, schemas, scripts,
@@ -621,7 +698,7 @@ and explicitly fictional examples. It MUST exclude:
 - raw sources and connector snapshots;
 - real Source notes and Wiki conclusions;
 - external object IDs and real project mappings;
-- Personal Authoring and Profile Memory;
+- Personal Memory, including Personal Authoring and Exact Profile;
 - operation diffs that contain private content;
 - caches, credentials, cookies, and tokens.
 
@@ -636,14 +713,17 @@ An implementation conforming to this specification MUST validate at least:
 5. An owner view is not presented as an external fact.
 6. Source coverage and capture time are distinguishable.
 7. Immutable files are not overwritten by an Operation.
-8. Exact Profile Memory values survive write-read round trips.
+8. Exact Profile values survive write-read round trips.
 9. Ambiguous scoped identifiers do not overwrite one another.
 10. Generated UI/search indexes can be deleted and rebuilt.
 11. Public export contains no private storage layers or real external IDs.
 12. Prohibited secrets are rejected.
-13. Event enqueue does not write canonical Workspace or Profile data.
+13. Event enqueue does not write canonical Workspace or Personal data.
 14. A Candidate cannot be marked applied without an owner decision and a
     canonical verification receipt.
+15. Missing or disabled Connector Config yields no external read commands.
+16. A connector checkpoint advances only after its immutable snapshot exists.
+17. Connector observations cannot authorize Exact Profile writes.
 
 ## 11. Skill and UI contract boundary
 
@@ -658,10 +738,12 @@ UI owns presentation, navigation, review, and user intent capture.
 | Write canonical files | Owns after authorization | Never writes directly |
 | Build disposable index | Provides or triggers | Consumes |
 | Browse projects and graph | Supplies data | Owns experience |
-| Profile Memory exact recall | Selective adapter read | Shows only requested fields |
+| Exact Profile recall | Selective adapter read | Shows only requested fields |
 | Queue potential captures | Enqueues and resolves | Shows pending/review states |
 | Approve/reject Candidate | Enforces transition | Captures explicit decision |
 | Apply approved Candidate | Single Writer through canonical workflow | Never writes directly |
+| Activate or disable Connector | Validates explicit config and boundary | Captures explicit intent |
+| Plan external read | Produces bounded plan only when enabled | Displays scope and due state |
 
 The first implementation SHOULD stabilize this contract before adding
 connector-specific UI behavior.
@@ -673,14 +755,18 @@ connector-specific UI behavior.
 | `raw/` | Immutable manual Sources |
 | `connected/lark/` | One connector-specific Snapshot implementation |
 | `config/projects/*.yaml` | Source Mappings |
-| `personal/captures/` and `reflections/` | Personal Authoring |
+| `~/.memory-home/personal/` | Exact Profile, Personal Work, preferences, learning, and owner captures |
+| `~/.memory-home/workspaces/<id>/` | Project-centered evidence and maintained Wiki |
+| `~/.memory-home/system/` | Capture, operations, indexes, connector state, and migrations |
 | `wiki/sources/S-*.md` | Source Notes |
 | `wiki/projects/<slug>/` | Project Markdown projection |
 | `wiki/topics/`, `entities/`, `syntheses/` | Maintained Wiki Pages |
 | `wiki/index.md` | Human-readable catalog |
 | `wiki/log.md` | Human-readable Activity Log |
 | `scripts/wiki_check.py` | Initial validator |
-| `~/.personal-memory/store.json` | External Profile Memory Store v1 |
+| `~/.personal-memory/store.json` | Legacy Exact Profile input; copy to `personal/profile/exact.json` |
+| `~/.personal-memory/workspaces/` | Legacy Workspace root; copy to `workspaces/` |
+| `~/.memory-workspace/capture/` | Legacy Capture root; copy to `system/capture/` |
 
 The executable reference schemas live in `schemas/`. The dependency-free
 `scripts/schema_check.py` validates the bundled examples and the subset of JSON
@@ -701,7 +787,7 @@ write target. See `references/review-index.md`.
 The v0.3 adapter adds an optional durable capture queue and Candidate inbox. It
 keeps model classification outside the current Query, supports background or
 deferred Workers without requiring a named Agent platform, and preserves the
-existing reviewed Workspace/Profile write boundaries. See
+existing reviewed Workspace/Personal write boundaries. See
 `references/async-capture.md`.
 
 The v0.6 adaptive layer adds versioned live/history events, stable conversation
@@ -711,9 +797,21 @@ is not a positive label: the learner only treats Episodes with a later explicit
 canonical save route as positive evidence. See `references/adaptive-policy.md`.
 
 The v0.8 single Writer closes the reviewed Candidate lifecycle. It maps an
-approved target to the canonical Profile or Workspace protocol, rejects unsafe
-Profile overwrites, verifies readback/checks, and emits a machine-readable
+approved target to the canonical Exact Profile or Workspace protocol, rejects
+unsafe Exact Profile overwrites, verifies readback/checks, and emits a machine-readable
 application receipt consumed by the local Review Inbox.
+
+The v0.9 connector protocol adds optional `Connector Config`, `External
+Observation`, and `Sync Checkpoint` resources. The first Lark planner requires
+explicit activation, uses a bounded 30-day baseline and checkpointed daily
+increments, and returns a plan without invoking `lark-cli`. See
+`references/lark-connector.md`.
+
+The v0.10 Memory Home foundation unifies defaults under `~/.memory-home/`,
+makes Personal Memory and Workspaces sibling scopes, emits Workspace manifests
+at schema v2, and adds a conflict-safe, copy-only migration from the former
+split roots. Candidate v3 defines Personal/Workspace routing while preserving
+the existing Writer as a compatibility layer. See `references/memory-home.md`.
 
 This draft adds a Workspace manifest, stable Page and Claim identities,
 Snapshot hashes, Operation manifests, privacy classes, and a formal Skill/UI

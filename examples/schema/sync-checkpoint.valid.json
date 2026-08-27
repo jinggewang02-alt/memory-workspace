@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "connector_id": "lark",
+  "provider": "lark",
+  "workspace_id": "product-memory",
+  "stream_id": "baseline",
+  "last_attempt_at": "2026-08-27T02:00:00Z",
+  "last_success_at": "2026-08-27T02:00:00Z",
+  "trigger": "first_enable",
+  "coverage": {
+    "start": "2026-07-28T02:00:00Z",
+    "end": "2026-08-27T02:00:00Z",
+    "complete": true
+  },
+  "high_watermark": {
+    "occurred_at": "2026-08-27T02:00:00Z",
+    "external_id": "om_example"
+  },
+  "snapshot_ref": "connected/lark/manifests/2026-08-27T020000Z.yaml",
+  "error_boundary": null
+}

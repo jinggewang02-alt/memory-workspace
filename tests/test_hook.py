@@ -34,9 +34,21 @@ class CodexHookTests(unittest.TestCase):
         self.assertNotIn("IMPORT_FILE", output)
 
     def test_personal_fact_keeps_profile_route(self) -> None:
-        output = self.run_hook("请记住我的学号是 12345")
+        environment = os.environ.copy()
+        for key in ("MEMORY_HOME", "PMEM_FILE", "PMEM_DIR"):
+            environment.pop(key, None)
+        output = self.run_hook("请记住我的学号是 12345", environment=environment)
         self.assertIn("REMEMBER", output)
         self.assertIn("store.py", output)
+        self.assertIn(".memory-home/personal/profile/exact.json", output)
+
+    def test_memory_home_override_is_reflected_in_profile_hint(self) -> None:
+        environment = os.environ.copy()
+        environment["MEMORY_HOME"] = "/durable/example-memory"
+        environment.pop("PMEM_FILE", None)
+        environment.pop("PMEM_DIR", None)
+        output = self.run_hook("请记住我的学号是 12345", environment=environment)
+        self.assertIn("/durable/example-memory/personal/profile/exact.json", output)
 
     def test_unrelated_prompt_is_silent(self) -> None:
         self.assertEqual(self.run_hook("解释一下二分查找"), "")

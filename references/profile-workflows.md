@@ -1,19 +1,25 @@
-# Profile Memory workflows
+# Exact Profile workflows
 
-Profile Memory 保存跨项目复用、需要逐字保真的个人事实。其默认位置是
-`~/.personal-memory/store.json`，与任何 Workspace 分离。
+Exact Profile 保存跨项目复用、需要逐字保真的个人事实。它属于统一 Memory Home 的
+Personal Memory 子层，默认位置是
+`~/.memory-home/personal/profile/exact.json`，与 Workspaces 平行而不是嵌套在某个
+Workspace 中。
 
 ## 路径和写入检查
 
 路径解析优先级：
 
-1. `PMEM_FILE`：完整文件路径；
-2. `PMEM_DIR`：目录，文件名固定为 `store.json`；
-3. `~/.personal-memory/store.json`。
+1. `PMEM_FILE`：兼容覆盖，完整文件路径；
+2. `PMEM_DIR`：兼容覆盖，目录内文件名固定为 `store.json`；
+3. `${MEMORY_HOME:-~/.memory-home}/personal/profile/exact.json`。
+
+`MEMORY_HOME` 是新安装推荐使用的统一根目录变量。旧
+`~/.personal-memory/store.json` 可通过 `scripts/home.py migration-plan` 和显式
+`migrate` 只复制迁移，原文件不会删除。
 
 `PMEM_PROJECT_DIR` 已弃用并被忽略。`doctor` 显示的路径位于临时目录、远程临时
 会话无法访问宿主机目录，或确切父目录不可写时，必须停止；不要把档案改存到当前
-项目。每次成功覆盖会保留同目录上一版 `store.json.bak`。
+项目。每次成功覆盖会在同目录保留上一版文件的 `.bak`。
 
 ## 数据类型
 

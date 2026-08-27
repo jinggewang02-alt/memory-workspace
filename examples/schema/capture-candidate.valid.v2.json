@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "candidate_id": "cand_project_context_001",
+  "fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "trigger_event_id": "evt_connector_001",
+  "episode_id": "ep_project_001",
+  "evidence_event_ids": [],
+  "scope": "project",
+  "kind": "project_context",
+  "content": "The project review moved to the next milestone.",
+  "confidence": 0.82,
+  "sensitivity": "normal",
+  "proposed_at": "2026-08-27T03:00:00Z",
+  "proposed_by": "project_resolver",
+  "policy_version": null,
+  "policy_rule": null,
+  "trigger_phase": "daily_incremental",
+  "target_hint": {
+    "workspace_id": "product-memory",
+    "profile_key": null
+  },
+  "project_id": "memory-workspace",
+  "claim_type": "project_status",
+  "subject_refs": ["project:memory-workspace"],
+  "evidence_refs": [
+    {
+      "ref_type": "external_observation",
+      "ref": "obs_lark_message_001",
+      "snapshot_ref": "connected/lark/messages/2026-08-27T020000Z.json"
+    }
+  ],
+  "temporal_scope": {
+    "start": "2026-08-26T00:00:00Z",
+    "end": "2026-08-27T02:00:00Z"
+  },
+  "novelty_score": 0.74,
+  "reason_codes": ["confirmed_project_chat", "new_status_signal"],
+  "proposed_patch": {
+    "operation": "update",
+    "target_path": "wiki/projects/memory-workspace/execution.md",
+    "summary": "Add a reviewable project-status update with source evidence."
+  }
+}

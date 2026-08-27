@@ -52,9 +52,11 @@ def _write_state(document: dict[str, Any], *, root: Path) -> None:
     )
 
 
-def _public_status(document: dict[str, Any], *, root: Path) -> dict[str, Any]:
-    report = habits.load_report(root=root)
-    active = policy.load_active_policy(root=root)
+def _public_status(
+    document: dict[str, Any], *, learning_root: Path | None
+) -> dict[str, Any]:
+    report = habits.load_report(root=learning_root)
+    active = policy.load_active_policy(root=learning_root)
     return {
         "status": document["status"],
         "run": document,
@@ -74,7 +76,7 @@ def get_status(
     selected_root = _root(root)
     document = _load_state(selected_root)
     if document is not None:
-        return _public_status(document, root=selected_root)
+        return _public_status(document, learning_root=root)
     source = discover_history_source(path=history_file, adapter=adapter)
     return {
         "status": "ready" if source["available"] else "needs_history_source",
@@ -101,7 +103,7 @@ def run_first_learning(
     selected_root = _root(root)
     existing = _load_state(selected_root)
     if existing is not None and not force:
-        result = _public_status(existing, root=selected_root)
+        result = _public_status(existing, learning_root=root)
         result["deduplicated"] = True
         return result
 
@@ -138,8 +140,8 @@ def run_first_learning(
         coverage_end=end_text,
         days=days,
     )
-    report_result = habits.write_report(report_document, root=selected_root)
-    policy_result = policy.build_policy(corpus, root=selected_root)
+    report_result = habits.write_report(report_document, root=root)
+    policy_result = policy.build_policy(corpus, root=root)
     started_at = capture.format_datetime(end)
     state = {
         "schema_version": 1,
@@ -170,7 +172,7 @@ def run_first_learning(
         "confirmed_at": None,
     }
     _write_state(state, root=selected_root)
-    result = _public_status(state, root=selected_root)
+    result = _public_status(state, learning_root=root)
     result.update(
         {
             "deduplicated": False,
@@ -189,19 +191,19 @@ def confirm_first_learning(
     if document is None:
         raise MemoryWorkspaceError("首次历史学习尚未运行。")
     if document["status"] == "completed":
-        result = _public_status(document, root=selected_root)
+        result = _public_status(document, learning_root=root)
         result["deduplicated"] = True
         return result
 
-    active = policy.load_active_policy(root=selected_root)
+    active = policy.load_active_policy(root=root)
     if active is None or active["policy_id"] != document["policy_id"]:
-        policy.activate_policy(document["policy_id"], actor=actor, root=selected_root)
-    habits.confirm_report(root=selected_root)
+        policy.activate_policy(document["policy_id"], actor=actor, root=root)
+    habits.confirm_report(root=root)
     completed = copy.deepcopy(document)
     completed["status"] = "completed"
     completed["confirmed_at"] = capture.format_datetime(capture.now_utc())
     _write_state(completed, root=selected_root)
-    result = _public_status(completed, root=selected_root)
+    result = _public_status(completed, learning_root=root)
     result["deduplicated"] = False
     return result
 
@@ -217,7 +219,7 @@ def refine_habits_from_agent(
         raise MemoryWorkspaceError("首次历史学习尚未运行。")
     if state["status"] != "awaiting_review":
         raise MemoryWorkspaceError("已确认的 Query habits 不得被静默替换。")
-    current = habits.load_report(root=selected_root)
+    current = habits.load_report(root=root)
     if current is None:
         raise MemoryWorkspaceError("首次学习的 Query habits 草稿缺失。")
     document = habits.load_agent_semantic_report(
@@ -225,11 +227,11 @@ def refine_habits_from_agent(
         root=selected_root,
         expected_coverage=current["coverage"],
     )
-    written = habits.write_report(document, root=selected_root)
+    written = habits.write_report(document, root=root)
     updated = copy.deepcopy(state)
     updated["habits_report_id"] = document["report_id"]
     updated["habits_markdown_path"] = written["markdown_path"]
     _write_state(updated, root=selected_root)
-    result = _public_status(updated, root=selected_root)
+    result = _public_status(updated, learning_root=root)
     result["deduplicated"] = False
     return result

@@ -2,7 +2,7 @@
 
 **给任意 Agent 一套本地优先、可审阅、以项目为中心的长期记忆。**
 
-Memory Workspace 不是一个需要长期在线的云服务。用户把它下载到自己的电脑或 Agent 运行环境后，Agent 通过统一的本地协议整理文件、保存证据、学习用户的 Query 习惯，并在写入长期记忆前交给用户确认。
+Memory Workspace 不是一个需要长期在线的云服务。用户把它下载到自己的电脑或 Agent 运行环境后，Agent 在统一的 `~/.memory-home/` 中维护个人工作记忆、项目 Workspace、证据、Query 习惯和待审变更。
 
 它想解决的不是“多记几条零散信息”，而是让 Agent 在长期协作中逐渐理解：
 
@@ -12,7 +12,7 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - 哪些个人资料需要跨项目精确召回；
 - 用户通常在什么情况下希望 Agent 记录，什么情况下不希望被打扰。
 
-> 当前版本已经跑通本地 Workspace、个人档案、30 天 Query 习惯学习、异步候选记忆和本地审阅 UI。更完整的“项目脉络编译”仍在迭代中，详见 [Roadmap](#roadmap)。
+> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地审阅 UI，并新增了显式启用的 Lark Connector 协议与有界读取计划。Personal Work 目前已完成目录与 Candidate v3 路由协议，自动维护工作脉络、连接器执行与更完整的“项目脉络编译”仍在迭代中，详见 [Roadmap](#roadmap)。
 
 ## 它如何工作
 
@@ -32,17 +32,17 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
                          │
              ┌───────────┴───────────┐
              ▼                       ▼
-      Project Workspace        Profile Memory
-      项目证据与 Wiki           跨项目精确个人事实
+       Personal Memory          Workspaces
+       个人资料与工作脉络         项目证据与 Wiki
 ```
 
-### 三个互相分离的层
+### 三个职责清晰、同根存储的层
 
 | 层 | 保存什么 | 关键边界 |
 | --- | --- | --- |
-| Project Workspace | 项目来源、上下文、决策、执行与 Wiki | 材料事实需要链接到来源；推断和事实分开 |
-| Profile Memory | 邮箱、经历、偏好等需要精确召回的个人资料 | 单值与结构化条目分开；敏感内容不做模糊猜测 |
-| Capture Queue | 对话事件、候选记忆、审阅结果和策略反馈 | 当前 Query 只做轻量入队；批准后才写入正式记忆 |
+| Personal Memory | 精确资料、跨项目职责、协作关系、关注主题、偏好与习惯 | 精确字段逐字保存；工作脉络链接 Workspace 证据 |
+| Workspaces | 项目来源、上下文、决策、执行与 Wiki | 材料事实需要链接到来源；推断和事实分开 |
+| System | Capture、Candidate、Operation、索引和 Connector 状态 | 运行状态不是长期知识；批准后才写入正式记忆 |
 
 ## 当前已经实现
 
@@ -53,6 +53,8 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - **异步记忆链路**：当前对话只进行轻量入队，后台再聚合 Episode、解析去向并生成 Candidate，降低对回答耗时的影响。
 - **本地 Review UI**：查看习惯报告和候选记忆，执行批准、拒绝、应用，并展示写入回执。
 - **协议与 JSON Schema**：事件、候选、决策、应用回执、策略、Workspace 和索引均有可验证的数据结构。
+- **统一 Memory Home**：默认在 `~/.memory-home/` 下并列保存 Personal、Workspaces 和 System；旧目录可先预览、再只复制迁移。
+- **可选 Lark Connector 计划器**：只有用户明确启用后，才生成近 30 天基线和每日增量的只读计划；默认不会探测、认证或读取飞书。
 
 ## 5 分钟开始使用
 
@@ -76,14 +78,23 @@ python3 scripts/bootstrap.py --json
 ### 3. 初始化项目 Workspace
 
 ```bash
+python3 scripts/home.py doctor
+python3 scripts/home.py init
 python3 scripts/workspace.py doctor
 python3 scripts/workspace.py init my-workspace --name "My Workspace"
 ```
 
-个人档案可以单独检查：
+精确个人资料可以单独检查：
 
 ```bash
 python3 scripts/store.py doctor
+```
+
+旧版本用户先预览迁移；确认无冲突后再显式复制，旧文件不会删除：
+
+```bash
+python3 scripts/home.py migration-plan --json
+python3 scripts/home.py migrate --json
 ```
 
 ### 4. 检查首次历史学习
@@ -107,6 +118,18 @@ python3 scripts/capture.py onboarding confirm
 
 不同 Agent 是否能直接访问历史，取决于它自身提供的能力和用户授权。Memory Workspace 不会静默搜索其他账号、扩大读取范围或绕过平台权限。
 
+如果用户明确希望把飞书作为项目证据源，可以单独启用 Lark Connector：
+
+```bash
+python3 scripts/connectors.py status my-workspace --provider lark --json
+python3 scripts/connectors.py enable-lark my-workspace --json
+python3 scripts/connectors.py plan my-workspace --provider lark --json
+```
+
+`enable-lark` 只记录本地授权配置，`plan` 只生成有界的只读计划；两者都不会直接执行
+`lark-cli`。未启用时返回空计划，也不会请求飞书权限。详见
+[Lark Connector](references/lark-connector.md)。
+
 ### 5. 打开本地 UI
 
 ```bash
@@ -124,11 +147,12 @@ UI 当前用于两类操作：
 
 ## 用户旅程
 
-1. **安装能力**：用户把仓库交给自己的 Agent，并允许它使用一个持久的本地目录。
+1. **安装能力**：用户把仓库交给自己的 Agent，并允许它使用持久的 `~/.memory-home/`。
 2. **环境准备**：Agent 根据能力探测结果完成最小必要配置，不依赖平台白名单。
 3. **学习习惯**：在用户授权且历史可见时，分析近 30 天 Query，形成可审阅的个人触发策略。
-4. **日常协作**：Agent 正常回答；值得保留的内容先异步进入候选区，不阻塞当前 Query，也不直接污染长期记忆。
-5. **用户掌控**：用户在本地 UI 查看依据、决定是否保留；获批内容才进入项目 Workspace 或个人档案。
+4. **可选外部证据**：只有用户明确启用某个 Connector 时，Agent 才按其配置建立基线并检查增量；非飞书用户不会触发 Lark 流程。
+5. **日常协作**：Agent 正常回答；值得保留的内容先异步进入候选区，不阻塞当前 Query，也不直接污染长期记忆。
+6. **用户掌控**：用户在本地 UI 查看依据、决定是否保留；获批内容才进入 Personal Memory 或目标 Workspace。
 
 ## Agent 如何接入
 
@@ -141,7 +165,7 @@ UI 当前用于两类操作：
 
 就可以接入同一套数据协议。平台适配器负责把各自的输入规范化为统一事件；Workspace、策略和 UI 不感知具体平台名称。
 
-适配器协议见 [references/adapter-contract.md](references/adapter-contract.md)，运行环境约定见 [references/runtime-capabilities.md](references/runtime-capabilities.md)。目前已提供通用历史文件交接方式；更多外部系统的 `discover / baseline / stream` 适配仍属于扩展接口，而不是已经内置的连接器。
+适配器协议见 [references/adapter-contract.md](references/adapter-contract.md)，运行环境约定见 [references/runtime-capabilities.md](references/runtime-capabilities.md)。目前已提供通用历史文件交接方式，以及 Lark 的显式配置、状态、计划和 checkpoint 协议；计划的自动执行与规范化仍是后续工作，其他外部系统也仍属于扩展接口。
 
 ## 数据与安全边界
 
@@ -149,6 +173,7 @@ UI 当前用于两类操作：
 - **Evidence-first**：原始来源和外部快照不可变；Wiki 中的重要事实需要能回到来源。
 - **Review-before-write**：候选内容默认不直接进入正式记忆。
 - **Scope-aware**：只能读取用户明确授权、当前 Agent 可见的数据，不能因为关键词或名称相似扩大范围。
+- **Connector opt-in**：外部连接器默认关闭；安装 Skill、检测到 CLI 或提到平台名称都不构成启用授权。
 - **Secret-safe**：密码、Cookie、访问令牌、私钥、一次性验证码和金融账号不应进入记忆库。
 - **Reversible**：策略可回看、候选可拒绝、应用过程有回执，索引可从正式文件重建。
 
@@ -167,6 +192,10 @@ memory-workspace/
 └── tests/                   # 单元与链路测试
 ```
 
+用户数据不保存在代码仓库里。默认的本机数据结构见
+[Memory Home](references/memory-home.md)：`personal/`、`workspaces/` 和 `system/`
+位于同一个 `~/.memory-home/` 根目录下。
+
 ## Roadmap
 
 下一阶段的重点不是继续增加零散记忆规则，而是把项目的完整脉络变成一等能力：
@@ -174,8 +203,9 @@ memory-workspace/
 - 为 Capture Event、Candidate 和来源补齐稳定的 `project_id`；
 - 增加 Project Resolver，把人、文档、聊天和任务解析到同一项目；
 - 增加 Project Compiler，持续维护项目的 `overview / context / decisions / execution`；
+- 实现 Candidate v3 的 Personal Work 单一 Writer，把跨项目职责、人物关系和主题安全地落到可审阅 Markdown；
 - 在 UI 中提供项目首页、人物关系、文档来源、决策链和时间线；
-- 为更多外部系统实现遵循同一契约的 `discover / baseline / stream` 适配器；
+- 完成 Lark 读取计划的执行、不可变快照规范化与项目解析，再为更多外部系统实现同一契约；
 - 用用户的真实审阅反馈持续校准个人触发策略，而不是依赖一套全局固定规则。
 
 这些能力会继续遵守同一原则：**先保存证据，再形成推断；先让用户审阅，再改变长期记忆。**
@@ -195,7 +225,8 @@ python3 -m unittest discover -s tests -v
 - [本地 Review Inbox](references/local-review-inbox.md)
 - [自适应策略](references/adaptive-policy.md)
 - [Workspace CLI](references/workspace-cli.md)
-- [Profile Memory 工作流](references/profile-workflows.md)
+- [Memory Home](references/memory-home.md)
+- [精确个人资料工作流](references/profile-workflows.md)
 
 ## 项目状态
 

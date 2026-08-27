@@ -82,9 +82,10 @@ python3 <skill-dir>/scripts/capture.py onboarding run \
 outside the rolling window before Event creation, rejects common secrets, and
 produces two separate review drafts:
 
-- `learning/query-habits.md` plus its validated JSON source describe recurring
+- `~/.memory-home/personal/learning/query-habits.md` plus its validated JSON source describe recurring
   interaction patterns for humans and Agents;
-- `policies/policy_*.json` controls Candidate timing and remains inactive.
+- `~/.memory-home/personal/learning/policies/policy_*.json` controls Candidate
+  timing and remains inactive.
 
 The local baseline requires a pattern to appear in at least two conversations.
 It defines “distinctive” relative to the same user's repeated behavior, not a
@@ -107,7 +108,7 @@ python3 <skill-dir>/scripts/capture.py onboarding confirm --json
 ```
 
 Confirmation marks the Markdown report confirmed and activates the matching
-Policy. It does not write the imported history into Workspace or Profile
+Policy. It does not write the imported history into Workspace or Exact Profile
 Memory. If no adapter is available, status remains `needs_history_source`; the
 system must not claim that the user has no history.
 
@@ -198,8 +199,8 @@ Supported feedback includes approval, rejection, edit, suppression of similar
 Candidates, explicit-save follow-up, successful recall, and complaints that
 something was forgotten. Feedback is append-only. Candidate fingerprints avoid
 repeated proposals with the same normalized scope, kind, target hint, and
-content. The single Writer and canonical Workspace/Profile verification remain
-unchanged.
+content. The single Writer and canonical Workspace/Personal verification remain
+unchanged; the current executable Personal target is Exact Profile.
 
 ## Offline replay
 

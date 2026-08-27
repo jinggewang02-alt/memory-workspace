@@ -377,12 +377,12 @@ def run_command(args: argparse.Namespace) -> Any:
     if args.cmd == "onboarding" and args.onboarding_cmd == "refine":
         return onboarding.refine_habits_from_agent(args.file)
     if args.cmd == "habits" and args.habits_cmd == "show":
-        report = habits.load_report(root=capture.capture_path())
+        report = habits.load_report()
         if report is None:
             raise MemoryWorkspaceError("还没有 query habits 报告。")
         return {
             "report": report,
-            "markdown_path": str(habits.report_markdown_path(capture.capture_path())),
+            "markdown_path": str(habits.report_markdown_path()),
         }
     if args.cmd == "episode" and args.episode_cmd == "list":
         return episodes.list_episodes(
