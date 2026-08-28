@@ -252,21 +252,23 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 Exact Profile。新协议 v3 使用 `workspace/personal`，其中 Personal Work Markdown 的自动
 提议和应用尚未完成；不得把目录骨架或 Schema 就绪说成已经能够自动维护个人工作脉络。
 
-### 本地候选审阅台
+### 本地 Memory Home 管理台
 
-环境有浏览器且用户要查看或处理待审候选时，可以启动最小本地 UI：
+环境有浏览器且用户要查看 Personal Memory、Workspace 或待审候选时，可以启动最小本地 UI：
 
 ```bash
 python3 <skill-dir>/scripts/ui.py
 ```
 
-它只监听本机，展示候选、判断原因和脱敏证据，并将批准/忽略操作交回现有 Capture
-审阅契约。批准后，用户可再明确点击“写入正式记忆”，由同一个单一 Writer 完成正式
-写入、校验和回执；浏览器代码不直接编辑 Workspace 或 Personal Memory。新环境仍须先
-完成能力探针，无浏览器或不能保持本地进程时继续使用 `scripts/capture.py`，不得为 UI
-擅自安装运行时。`127.0.0.1` 只代表运行服务的那台设备；远程 Agent、临时沙箱或已经
-退出的命令都不能向用户承诺该链接可访问。启动进程后必须验证 `/api/health`，验证失败时
-停止展示链接并报告准确边界。
+它只监听本机，并把整个 Memory Home 作为顶层：Personal Exact Profile、Personal Work/
+Preferences、Workspaces 与候选审阅并列展示。Profile 值默认不出现在 Home 总览；用户主动
+查看时才通过会话令牌读取。用户可明确新增或修改单值 Profile，动作必须经过正式 Profile
+写入路径和逐字回读；结构化条目、Personal Markdown 与 Workspace 文件在 UI 中保持只读。
+Candidate 批准后，用户可再明确点击“写入正式记忆”，由同一个单一 Writer 完成正式写入、
+校验和回执。新环境仍须先完成能力探针，无浏览器或不能保持本地进程时继续使用 CLI，
+不得为 UI 擅自安装运行时。`127.0.0.1` 只代表运行服务的那台设备；远程 Agent、临时沙箱
+或已经退出的命令都不能向用户承诺该链接可访问。启动进程后必须验证 `/api/health`，验证
+失败时停止展示链接并报告准确边界。
 详细边界见 [references/local-review-inbox.md](references/local-review-inbox.md)。
 
 ## 精确个人资料工作流

@@ -12,7 +12,7 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - 哪些个人资料需要跨项目精确召回；
 - 用户通常在什么情况下希望 Agent 记录，什么情况下不希望被打扰。
 
-> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地审阅 UI，并新增了显式启用的 Lark Connector 协议与有界读取计划。Personal Work 目前已完成目录与 Candidate v3 路由协议，自动维护工作脉络、连接器执行与更完整的“项目脉络编译”仍在迭代中，详见 [Roadmap](#roadmap)。
+> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地 Memory Home UI，并新增了显式启用的 Lark Connector 协议与有界读取计划。Personal Work 目前已完成目录、Home UI 只读总览与 Candidate v3 路由协议，自动维护工作脉络、连接器执行与更完整的“项目脉络编译”仍在迭代中，详见 [Roadmap](#roadmap)。
 
 ## 它如何工作
 
@@ -27,8 +27,8 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
         └─ 3b. 普通对话 ──> 本地轻量暂存 ──> 晚间批量整理    │
                                               │             │
                                               ▼             │
-                                       本地 Review UI       │
-                                       批准 / 拒绝 / 看依据  │
+                                      本地 Memory Home UI    │
+                               Personal / Workspace / 待审   │
                                               │             │
                                   ┌───────────┴─────────────┘
                                   ▼
@@ -52,7 +52,7 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - **首次 30 天习惯学习**：仅在 Agent 已获授权且能看到历史时，分析近 30 天用户 Query，生成 `query-habits.md` 和待确认的触发策略。
 - **主动记忆链路**：明确“记住”时立即正式写入并回读；未明确的 Query 默认只在本机轻量暂存，晚间按 Episode 批量解析并生成 Candidate，降低对回答耗时的影响。
 - **记忆引用**：回答真正使用 Personal Memory 或 Workspace 时，末尾显示一行不含敏感值和绝对路径的简短 `参考记忆`。
-- **本地 Review UI**：查看习惯报告和候选记忆，执行批准、拒绝、应用，并展示写入回执。
+- **本地 Memory Home UI**：在一个入口查看 Personal Memory、Workspace、习惯报告和候选记忆；精确资料值默认隐藏，单值修改会写入并逐字回读。
 - **协议与 JSON Schema**：事件、候选、决策、应用回执、策略、Workspace 和索引均有可验证的数据结构。
 - **统一 Memory Home**：默认在 `~/.memory-home/` 下并列保存 Personal、Workspaces 和 System；旧目录可先预览、再只复制迁移。
 - **可选 Lark Connector 计划器**：只有用户明确启用后，才生成近 30 天基线和每日增量的只读计划；默认不会探测、认证或读取飞书。
@@ -142,13 +142,16 @@ python3 scripts/ui.py
 `ready`。远程 Agent 或临时沙箱不能把自己的 `127.0.0.1` 当成用户电脑上的链接；这种
 情况下继续使用 CLI 或对话完成审阅。
 
-UI 当前用于两类操作：
+UI 当前提供四个并列视角：
 
-1. 查看首次学习生成的 Query 习惯报告；
-2. 审阅、批准、拒绝和应用后台产生的候选记忆。
+1. 查看整个 Memory Home 的 Personal、Workspace 与待审数量；
+2. 查看精确个人资料字段；值默认隐藏，主动查看后可新增或修改单值资料；
+3. 只读查看跨项目工作总览、项目组合、确认偏好和待确认模式；
+4. 查看 Query 习惯报告，并审阅、批准、拒绝和应用后台产生的候选记忆。
 
-浏览器不会直接改写正式记忆文件。所有变更都经过本地协议、单一 Writer、回读和校验。
-没有待审习惯或 Candidate 时，不需要把打开 UI 作为首次使用步骤。
+浏览器不会任意改写 Markdown、结构化经历或 Workspace 文件。用户在表单中明确保存的
+Exact Profile 单值会通过正式 Profile Writer 写入并逐字回读；Candidate 仍通过审阅与
+单一 Writer 应用。没有待审习惯或 Candidate 时，UI 仍可作为整个 Memory Home 的查看入口。
 
 旧版本用户先预览迁移；确认无冲突后再显式复制，旧文件不会删除：
 
@@ -198,7 +201,7 @@ memory-workspace/
 ├── SKILL.md                 # Agent 使用入口与行为边界
 ├── memory_workspace/        # Python 核心实现
 ├── scripts/                 # Workspace、记忆、Capture、UI 等 CLI
-├── ui/                      # 本地审阅界面
+├── ui/                      # 本地 Memory Home 管理界面
 ├── schemas/                 # 协议 JSON Schema
 ├── adapters/                # Agent / 平台适配层
 ├── references/              # 数据模型、工作流与协议说明
@@ -237,7 +240,7 @@ python3 -m unittest discover -s tests -v
 - [数据模型](references/data-model.md)
 - [异步 Capture 设计](references/async-capture.md)
 - [回复中的记忆引用](references/response-references.md)
-- [本地 Review Inbox](references/local-review-inbox.md)
+- [本地 Memory Home UI](references/local-review-inbox.md)
 - [自适应策略](references/adaptive-policy.md)
 - [Workspace CLI](references/workspace-cli.md)
 - [Memory Home](references/memory-home.md)

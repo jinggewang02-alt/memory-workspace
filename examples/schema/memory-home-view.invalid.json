@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "home": {
+    "id": "default",
+    "path": "/Users/example/.memory-home",
+    "status": "ready"
+  },
+  "summary": {
+    "personal_profile_items": 1,
+    "personal_documents": 0,
+    "workspaces": 0,
+    "review_candidates": 0
+  },
+  "personal": {
+    "profile": {
+      "count": 1,
+      "updated_at": null,
+      "items": [
+        {
+          "key": "联系邮箱",
+          "type": "single",
+          "value": "must-not-leak@example.com",
+          "masked": true,
+          "memory_reference": {
+            "schema_version": 1,
+            "uri": "memory://personal/profile/email",
+            "scope": "personal",
+            "kind": "exact_profile",
+            "label": "Personal · 联系邮箱",
+            "path": "personal/profile/exact.json",
+            "item_key": "联系邮箱",
+            "item_index": null
+          }
+        }
+      ],
+      "values_masked": true,
+      "supports_single_value_edit": true,
+      "supports_structured_entry_edit": false
+    },
+    "documents": [],
+    "collections": {
+      "people": 0,
+      "themes": 0,
+      "timeline": 0,
+      "captures": 0
+    }
+  },
+  "workspaces": [],
+  "review": {
+    "counts": {
+      "proposed": 0,
+      "approved": 0,
+      "rejected": 0,
+      "applied": 0
+    }
+  }
+}

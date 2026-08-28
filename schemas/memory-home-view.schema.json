@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/memory-home-view.schema.json",
+  "title": "Safe read model for the local Memory Home UI",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "home", "summary", "personal", "workspaces", "review"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "home": {"$ref": "#/$defs/home"},
+    "summary": {"$ref": "#/$defs/summary"},
+    "personal": {"$ref": "#/$defs/personal"},
+    "workspaces": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/workspace"}
+    },
+    "review": {"$ref": "#/$defs/review"}
+  },
+  "$defs": {
+    "home": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "status"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "status": {"enum": ["ready", "needs_setup"]}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["personal_profile_items", "personal_documents", "workspaces", "review_candidates"],
+      "properties": {
+        "personal_profile_items": {"type": "integer"},
+        "personal_documents": {"type": "integer"},
+        "workspaces": {"type": "integer"},
+        "review_candidates": {"type": "integer"}
+      }
+    },
+    "personal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "documents", "collections"],
+      "properties": {
+        "profile": {"$ref": "#/$defs/profile"},
+        "documents": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/document"}
+        },
+        "collections": {"$ref": "#/$defs/collections"}
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "updated_at", "items", "values_masked", "supports_single_value_edit", "supports_structured_entry_edit"],
+      "properties": {
+        "count": {"type": "integer"},
+        "updated_at": {"type": ["integer", "null"]},
+        "items": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/profile_item"}
+        },
+        "values_masked": {"const": true},
+        "supports_single_value_edit": {"const": true},
+        "supports_structured_entry_edit": {"const": false}
+      }
+    },
+    "profile_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "type", "masked", "memory_reference"],
+      "properties": {
+        "key": {"type": "string", "minLength": 1},
+        "type": {"enum": ["single", "entries"]},
+        "count": {"type": "integer"},
+        "masked": {"const": true},
+        "memory_reference": {"$ref": "#/$defs/personal_reference"}
+      }
+    },
+    "personal_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "uri", "scope", "kind", "label", "path", "item_key", "item_index"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "uri": {"type": "string", "pattern": "^memory://personal/profile/"},
+        "scope": {"const": "personal"},
+        "kind": {"const": "exact_profile"},
+        "label": {"type": "string", "minLength": 1},
+        "path": {"const": "personal/profile/exact.json"},
+        "item_key": {"type": "string", "minLength": 1},
+        "item_index": {"type": ["integer", "null"]}
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "kind", "path", "exists", "empty", "content", "truncated", "editable_in_ui"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "label": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["work", "preferences"]},
+        "path": {"type": "string", "pattern": "^personal/"},
+        "exists": {"type": "boolean"},
+        "empty": {"type": "boolean"},
+        "content": {"type": "string"},
+        "truncated": {"type": "boolean"},
+        "editable_in_ui": {"const": false}
+      }
+    },
+    "collections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["people", "themes", "timeline", "captures"],
+      "properties": {
+        "people": {"type": "integer"},
+        "themes": {"type": "integer"},
+        "timeline": {"type": "integer"},
+        "captures": {"type": "integer"}
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workspace_id", "name", "created_at", "status", "error", "counts"],
+      "properties": {
+        "workspace_id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "created_at": {"type": ["string", "null"]},
+        "status": {"enum": ["ready", "needs_attention"]},
+        "error": {"type": ["string", "null"]},
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sources", "operations"],
+          "properties": {
+            "sources": {"type": "integer"},
+            "operations": {"type": "integer"}
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["counts"],
+      "properties": {
+        "counts": {"$ref": "#/$defs/review_counts"}
+      }
+    },
+    "review_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposed", "approved", "rejected", "applied"],
+      "properties": {
+        "proposed": {"type": "integer"},
+        "approved": {"type": "integer"},
+        "rejected": {"type": "integer"},
+        "applied": {"type": "integer"}
+      }
+    }
+  }
+}

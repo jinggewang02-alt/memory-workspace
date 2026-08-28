@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare Memory Home and launch the loopback-only review UI."""
+"""Prepare Memory Home and launch its loopback-only local UI."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from memory_workspace.ui_server import create_server  # noqa: E402
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Initialize Memory Workspace and launch its local review UI"
+        description="Initialize Memory Home and launch its local management UI"
     )
     parser.add_argument(
         "--home",
@@ -128,7 +128,7 @@ def main() -> int:
 
     host, port = server.server_address[:2]
     url = "http://{0}:{1}/".format(host, port)
-    print("[memory-workspace] 本地审阅台已启动：{0}".format(url), flush=True)
+    print("[memory-workspace] Memory Home 本地管理台已启动：{0}".format(url), flush=True)
     print("[memory-workspace] 按 Ctrl+C 停止；数据不会离开本机。", flush=True)
     if not args.no_open:
         webbrowser.open(url)

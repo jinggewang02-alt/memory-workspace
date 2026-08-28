@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch the loopback-only Memory Workspace review inbox."""
+"""Launch the loopback-only Memory Home UI."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from memory_workspace.ui_server import create_server  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Launch the local candidate review inbox")
+    parser = argparse.ArgumentParser(description="Launch the local Memory Home UI")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8741)
     parser.add_argument("--no-open", action="store_true")
@@ -34,7 +34,7 @@ def main() -> int:
         return 1
     host, port = server.server_address[:2]
     url = f"http://{host}:{port}/"
-    print(f"[memory-workspace] 本地审阅台已启动：{url}", flush=True)
+    print(f"[memory-workspace] Memory Home 本地管理台已启动：{url}", flush=True)
     print("[memory-workspace] 按 Ctrl+C 停止；数据不会离开本机。", flush=True)
     if not args.no_open:
         webbrowser.open(url)
