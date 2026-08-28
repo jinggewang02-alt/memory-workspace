@@ -18,6 +18,12 @@ The command opens `http://127.0.0.1:8741/`. Use `--no-open` when the current
 environment cannot open a browser, and `--port <port>` if the default port is
 occupied. The host is intentionally limited to `localhost` or `127.0.0.1`.
 
+Loopback is reachable only from a browser on the same device while the server
+process remains alive. A remote Agent MUST NOT present its loopback URL to the
+user. After launch, verify `GET /api/health`; only a response containing
+`status=ready` proves that the link is currently live. `quickstart --json` never
+starts this process and returns `ui.status=not_started` with a null URL.
+
 ## UI contract
 
 The UI exposes two connected workflows. First-use learning:

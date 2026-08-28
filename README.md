@@ -58,32 +58,33 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 
 ## 5 分钟开始使用
 
-### 下载并启动
+### 下载并准备
 
 ```bash
 git clone https://github.com/jinggewang02-alt/memory-workspace.git
 cd memory-workspace
-python3 scripts/quickstart.py
+python3 scripts/quickstart.py --json
 ```
 
-这一个命令会依次完成能力检查、初始化 `~/.memory-home/`，然后只在
-`127.0.0.1` 启动本地 UI。命令可重复运行；已有文件不会被重建或覆盖。
+Agent 应先找到环境中实际可用的 Python 3.10+ 启动器，再执行这条命令；不能因为命令名
+是 `python3` 就假定版本满足要求。这一个命令会完成能力检查并初始化
+`~/.memory-home/`。命令可重复运行；已有文件不会被重建或覆盖。
 
 运行要求是 Python 3.10+、可执行本地命令，以及一个不会随会话消失的可写目录。
 缺少条件时，命令会停在写入前，并明确返回
 `NEEDS_RUNTIME`、`NEEDS_PERSISTENT_PATH`、`NEEDS_PERMISSION` 或 `UNSUPPORTED`。
 
-如果由 Agent 完成安装，使用机器可读模式。它会初始化目录并返回收据，但不会占用前台
-进程启动 UI：
-
-```bash
-python3 scripts/quickstart.py --json
-```
-
 返回 `READY` 后，基础能力已经可用。此时没有历史来源、没有 Workspace、没有启用飞书，
 都属于正常的可选状态，不是安装失败。如果当前 Agent 已经通过标准适配器显式交付了
 授权历史，一键准备会自动执行一次有界的近 30 天学习，并停在 `awaiting_review` 等待确认。
 历史文件损坏或不符合协议时只标记为 `needs_attention`，不会撤销已经完成的基础初始化。
+
+首次成功后，用户不需要从一组功能中选择下一步。直接继续使用 Agent 即可：真实项目、
+个人资料和文件出现时再按场景建立对应记忆；没有历史来源时安静延后；没有待审内容时
+无需打开 UI。
+
+机器可读模式不会启动 HTTP 服务。它明确返回 `ui.status=not_started`、`ui.url=null`，
+并附带当前 Python 解释器对应的启动命令；这表示“可以启动”，不是“链接已经可访问”。
 
 ### 按需创建第一个 Workspace
 
@@ -131,8 +132,10 @@ python3 scripts/connectors.py plan my-workspace --provider lark --json
 python3 scripts/ui.py
 ```
 
-然后访问 [http://127.0.0.1:8741/](http://127.0.0.1:8741/)。新用户直接使用
-`quickstart.py` 即可。
+只有浏览器和 Agent 命令运行在同一台设备、并且该进程能够持续运行时，才使用本地 UI。
+服务成功启动后访问 `http://127.0.0.1:8741/`，并可通过 `/api/health` 确认服务确实处于
+`ready`。远程 Agent 或临时沙箱不能把自己的 `127.0.0.1` 当成用户电脑上的链接；这种
+情况下继续使用 CLI 或对话完成审阅。
 
 UI 当前用于两类操作：
 
@@ -140,6 +143,7 @@ UI 当前用于两类操作：
 2. 审阅、批准、拒绝和应用后台产生的候选记忆。
 
 浏览器不会直接改写正式记忆文件。所有变更都经过本地协议、单一 Writer、回读和校验。
+没有待审习惯或 Candidate 时，不需要把打开 UI 作为首次使用步骤。
 
 旧版本用户先预览迁移；确认无冲突后再显式复制，旧文件不会删除：
 
@@ -150,12 +154,12 @@ python3 scripts/home.py migrate --json
 
 ## 用户旅程
 
-1. **安装能力**：用户把仓库交给自己的 Agent，并允许它使用持久的 `~/.memory-home/`。
-2. **环境准备**：Agent 根据能力探测结果完成最小必要配置，不依赖平台白名单。
-3. **学习习惯**：在用户授权且历史可见时，分析近 30 天 Query，形成可审阅的个人触发策略。
-4. **可选外部证据**：只有用户明确启用某个 Connector 时，Agent 才按其配置建立基线并检查增量；非飞书用户不会触发 Lark 流程。
-5. **日常协作**：Agent 正常回答；值得保留的内容先异步进入候选区，不阻塞当前 Query，也不直接污染长期记忆。
-6. **用户掌控**：用户在本地 UI 查看依据、决定是否保留；获批内容才进入 Personal Memory 或目标 Workspace。
+1. **准备完成**：用户把仓库交给 Agent；Agent 探测能力并初始化持久的 `~/.memory-home/`。
+2. **直接使用**：用户继续正常工作，不需要先选择 Workspace、Profile、文件或历史模块。
+3. **场景触发**：出现真实项目、个人资料或文件时，Agent 才按对应协议建立记忆。
+4. **后台学习**：仅在用户授权且历史可见时分析近 30 天 Query；没有来源就安静延后。
+5. **按需审阅**：出现待审习惯或 Candidate 后，才提供可验证的本地 UI 或对话审阅入口。
+6. **正式写入**：用户批准后才进入 Personal Memory 或目标 Workspace，并完成回读校验。
 
 ## Agent 如何接入
 

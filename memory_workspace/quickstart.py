@@ -42,7 +42,7 @@ def prepare(
     report = capability_report or build_report(skill_root, environ=environment)
     if report["status"] != "READY":
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "command": "quickstart",
             "status": report["status"],
             "ready": False,
@@ -85,28 +85,33 @@ def prepare(
     workspaces = workspace.list_workspaces(root=paths["workspaces"])
     capture_check = capture.doctor(root=paths["capture"])
 
-    next_actions = [
-        "Start using Memory Workspace; new memories will remain review-first.",
-    ]
-    if not workspaces:
-        next_actions.append(
-            "Create the first Workspace when a real project needs durable context."
-        )
-    if learning["status"] == "needs_history_source":
-        next_actions.append(
-            "History learning is optional and can be configured later without blocking use."
-        )
-    elif learning["status"] == "awaiting_review":
-        next_actions.append(
-            "Review and confirm the generated Query-habit draft before it becomes active."
+    notices: list[dict[str, str]] = []
+    if learning["status"] == "awaiting_review":
+        notices.append(
+            {
+                "kind": "history_review_ready",
+                "message": "A Query-habit draft is ready for review.",
+            }
         )
     elif learning["status"] == "needs_attention":
-        next_actions.append(
-            "Fix or remove the configured history handoff; core local memory is already ready."
+        notices.append(
+            {
+                "kind": "history_source_attention",
+                "message": (
+                    "The configured history handoff needs attention; core local memory "
+                    "is already ready."
+                ),
+            }
         )
 
+    python = report["capabilities"]["python"]
+    ui_command = [
+        str(python.get("executable") or "<python-3.10+>"),
+        str((skill_root / "scripts" / "ui.py").resolve()),
+    ]
+
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "command": "quickstart",
         "status": "READY",
         "ready": True,
@@ -126,11 +131,23 @@ def prepare(
         "external_connectors": {"lark": "disabled_by_default"},
         "capture": capture_check,
         "ui": {
-            "launch_ready": True,
-            "default_url": "http://127.0.0.1:8741/",
+            "status": "not_started",
+            "url": None,
+            "launch_command": ui_command,
+            "health_path": "/api/health",
             "loopback_only": True,
+            "requires_same_device_browser": True,
+            "requires_long_lived_process": True,
         },
-        "next_actions": next_actions,
+        "message": "Memory Workspace is ready. Continue using the Agent normally.",
+        "primary_action": {
+            "kind": "continue",
+            "label": "Continue using the Agent",
+        },
+        "notices": notices,
+        "next_actions": [
+            "Continue using the Agent normally; contextual memory workflows activate when needed."
+        ],
         "capability_status": report["status"],
     }
 

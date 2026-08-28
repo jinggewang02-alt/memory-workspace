@@ -304,6 +304,16 @@ def build_handler(
                     filename, content_type = STATIC_FILES[target.path]
                     self._send_bytes((UI_ROOT / filename).read_bytes(), content_type=content_type)
                     return
+                if target.path == "/api/health":
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "service": "memory-workspace-review-ui",
+                            "status": "ready",
+                            "loopback_only": True,
+                        }
+                    )
+                    return
                 if target.path == "/api/session":
                     self._send_json({"ok": True, "token": token})
                     return

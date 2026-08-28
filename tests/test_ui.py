@@ -159,6 +159,14 @@ class LocalReviewInboxTests(unittest.TestCase):
         self.assertTrue(overview["readiness"]["history_learning"]["optional"])
         self.assertEqual(overview["readiness"]["workspaces"]["count"], 0)
 
+    def test_health_endpoint_only_claims_ready_after_server_is_listening(self) -> None:
+        status, payload, headers = self.get("/api/health")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["service"], "memory-workspace-review-ui")
+        self.assertTrue(payload["loopback_only"])
+        self.assertEqual(headers["Cache-Control"], "no-store")
+
     def test_first_learning_report_round_trip(self) -> None:
         _, before, _ = self.get("/api/onboarding")
         self.assertEqual(before["onboarding"]["status"], "needs_history_source")

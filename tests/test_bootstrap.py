@@ -41,6 +41,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(report["status"], "READY")
         self.assertEqual(report["runtime_mode"], "local-full")
         self.assertTrue(report["write_ready"])
+        self.assertTrue(report["capabilities"]["python"]["executable"])
         self.assertEqual(exit_code(report), 0)
         serialized = json.dumps(report)
         self.assertNotIn('"platform"', serialized)
@@ -75,6 +76,19 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(report["status"], "NEEDS_RUNTIME")
         self.assertFalse(report["write_ready"])
         self.assertEqual(exit_code(report), 1)
+
+    def test_report_preserves_the_exact_python_launcher(self) -> None:
+        report = build_report(
+            ROOT,
+            environ={},
+            python_version=(3, 12, 1),
+            python_executable="/opt/example/python3.12",
+            path_probe=probe(),
+        )
+        self.assertEqual(
+            report["capabilities"]["python"]["executable"],
+            "/opt/example/python3.12",
+        )
 
     def test_transient_and_permission_states_are_distinct(self) -> None:
         transient = build_report(

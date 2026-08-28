@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _failure(exc: Exception) -> dict[str, object]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "command": "quickstart",
         "status": "SETUP_FAILED",
         "ready": False,
@@ -67,10 +67,11 @@ def _render_text(result: dict[str, object]) -> None:
             created, initialized["home_path"]
         )
     )
+    print("[memory-workspace] 已准备好。现在直接继续使用 Agent 即可。")
     learning = result["history_learning"]
     assert isinstance(learning, dict)
-    if learning["status"] == "needs_history_source":
-        print("[memory-workspace] 历史学习尚未连接，可稍后配置，不影响现在使用。")
+    if learning["status"] == "awaiting_review":
+        print("[memory-workspace] 有一份 Query 习惯草稿待审阅。")
     elif learning["status"] == "needs_attention":
         print(
             "[memory-workspace] 历史学习配置需要检查；基础能力仍可使用：{0}".format(

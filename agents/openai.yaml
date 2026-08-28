@@ -1,4 +1,4 @@
 interface:
   display_name: "Memory Workspace"
   short_description: "维护项目知识库、个人档案与本地候选审阅台"
-  default_prompt: "Use $memory-workspace to prepare my local Memory Home, explain any blocker, and open the review UI. Keep history learning and external connectors optional unless I authorize them."
+  default_prompt: "Use $memory-workspace to prepare my local Memory Home, return one concise ready result without optional setup menus, and open the review UI only after a same-device server passes its health check."

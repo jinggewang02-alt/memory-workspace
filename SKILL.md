@@ -58,11 +58,23 @@ Personal Work 只链接 Workspace 证据或 owner capture，不复制外部原�
 
 `quickstart --json` 先执行只读能力探针，只有状态为 `READY` 时才初始化目录。它返回
 Memory Home、Personal Learning、Workspace 和 Capture 的实际路径，以及首次历史学习状态。
-如果用户希望打开本地审阅台，运行：
+此模式不会启动常驻 UI；收据中的 `ui.status=not_started` 和 `ui.url=null` 必须按字面
+理解，不得把 `launch_command` 误报成已经可以访问的链接。
+
+首次准备成功后，面向用户只需说明“Memory Workspace 已准备好，可以直接继续使用
+Agent”。不要列出“创建 Workspace、保存个人资料、收录文件、打开 UI、配置历史”之类的
+功能菜单。它们是内部能力，不是用户必须完成的初始化选项：真实项目、个人资料和文件
+出现时再按场景触发；没有历史来源时安静延后；没有待审内容时不主动要求打开 UI。
+
+只有用户需要处理待审内容，且当前 Agent 能确认浏览器与执行环境位于同一台设备、命令
+可以保持长期运行时，才运行：
 
 ```bash
 <python> <skill-dir>/scripts/quickstart.py
 ```
+
+如果不能确认上述条件，继续使用 CLI/对话审阅，不展示 `127.0.0.1` 链接。服务启动后还要
+读取 `/api/health`，只有返回 `status=ready` 时才能告诉用户链接已经可用。
 
 旧版目录存在时，先运行 `migration-plan`。只有用户明确要求迁移后才运行 `migrate`；它
 只能复制和哈希校验，不得删除 `~/.personal-memory/` 或 `~/.memory-workspace/`。完整边界见
@@ -243,7 +255,9 @@ python3 <skill-dir>/scripts/ui.py
 审阅契约。批准后，用户可再明确点击“写入正式记忆”，由同一个单一 Writer 完成正式
 写入、校验和回执；浏览器代码不直接编辑 Workspace 或 Personal Memory。新环境仍须先
 完成能力探针，无浏览器或不能保持本地进程时继续使用 `scripts/capture.py`，不得为 UI
-擅自安装运行时。
+擅自安装运行时。`127.0.0.1` 只代表运行服务的那台设备；远程 Agent、临时沙箱或已经
+退出的命令都不能向用户承诺该链接可访问。启动进程后必须验证 `/api/health`，验证失败时
+停止展示链接并报告准确边界。
 详细边界见 [references/local-review-inbox.md](references/local-review-inbox.md)。
 
 ## 精确个人资料工作流

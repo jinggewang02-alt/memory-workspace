@@ -26,6 +26,10 @@ Run the read-only probe with an available Python launcher:
 <python> <skill-dir>/scripts/bootstrap.py --json
 ```
 
+`<python>` means the exact executable that passed the minimum-version check.
+Agents should preserve `capabilities.python.executable` in later launch commands
+instead of falling back to a different `python3` found on `PATH`.
+
 The probe does not create a test file, install software, change permissions, or
 contact a remote service. Host-level sandbox approval may still be required
 when the first real command writes data.
@@ -63,6 +67,20 @@ capabilities:
    that onboarding state or `query-habits.md` was saved.
 4. Unknown environment: report the missing capability rather than guessing the
    product or claiming local persistence.
+
+## Local UI boundary
+
+The review UI is an optional same-device capability, not proof of core setup.
+Machine-readable quickstart initializes storage and returns
+`ui.status=not_started`; it does not create a background server. An Agent may
+offer a link only after all of the following are observed:
+
+1. the browser and command runtime share the same device;
+2. a long-lived UI process successfully binds a loopback port;
+3. `GET /api/health` returns `status=ready`.
+
+If any condition is unknown, keep review in CLI or conversation and do not show
+a `127.0.0.1` URL.
 
 ## Adding another agent runtime
 
