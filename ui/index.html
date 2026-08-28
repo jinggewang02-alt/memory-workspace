@@ -27,6 +27,32 @@
           <p class="hero-copy">Agent 先提出候选，你决定什么值得成为长期记忆。</p>
         </section>
 
+        <section id="setup-panel" class="setup-panel" aria-labelledby="setup-title" aria-live="polite">
+          <div class="setup-intro">
+            <span id="setup-state" class="setup-state">正在检查</span>
+            <h2 id="setup-title">确认本地记忆是否就绪</h2>
+            <p id="setup-copy">正在读取本机配置，不会连接外部服务。</p>
+            <code id="setup-command" class="setup-command" hidden>python3 scripts/quickstart.py</code>
+          </div>
+          <div class="setup-items" aria-label="首次使用状态">
+            <article id="setup-memory" class="setup-item is-loading">
+              <span>本地记忆</span>
+              <strong>检查中</strong>
+              <p>确认持久目录与数据结构。</p>
+            </article>
+            <article id="setup-history" class="setup-item is-loading">
+              <span>历史学习</span>
+              <strong>检查中</strong>
+              <p>这是一项可稍后开启的能力。</p>
+            </article>
+            <article id="setup-workspaces" class="setup-item is-loading">
+              <span>项目空间</span>
+              <strong>检查中</strong>
+              <p>第一次处理项目时再创建。</p>
+            </article>
+          </div>
+        </section>
+
         <section id="learning-panel" class="learning-panel" aria-labelledby="learning-title">
           <button class="learning-heading" type="button" id="learning-toggle" aria-expanded="false">
             <div>
@@ -59,17 +85,17 @@
         <section class="summary-grid" aria-label="记忆状态概览">
           <article class="summary-card summary-primary">
             <span class="summary-label">等待你审阅</span>
-            <strong id="stat-proposed">—</strong>
+            <strong id="stat-proposed">…</strong>
             <span class="summary-note">条候选记忆</span>
           </article>
           <article class="summary-card">
             <span class="summary-label">已经批准</span>
-            <strong id="stat-approved">—</strong>
+            <strong id="stat-approved">…</strong>
             <span class="summary-note">等待正式写入</span>
           </article>
           <article class="summary-card">
             <span class="summary-label">已经应用</span>
-            <strong id="stat-applied">—</strong>
+            <strong id="stat-applied">…</strong>
             <span class="summary-note">条正式记忆</span>
           </article>
           <article class="summary-card policy-card">

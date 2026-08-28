@@ -46,6 +46,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
@@ -178,6 +182,128 @@ h1 {
   color: var(--muted);
   font-size: 16px;
   line-height: 1.7;
+}
+
+/* ---------- 首次使用：开箱状态 ---------- */
+.setup-panel {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1.7fr);
+  gap: 0;
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.setup-intro {
+  padding: 24px;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.setup-state {
+  display: inline-flex;
+  margin-bottom: 16px;
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.setup-state.is-ready {
+  border-color: #d5e1d2;
+  color: #4e6249;
+  background: #f1f5ef;
+}
+
+.setup-intro h2 {
+  margin-bottom: 8px;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.setup-intro p {
+  max-width: 34ch;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.setup-command {
+  display: block;
+  overflow-x: auto;
+  margin-top: 16px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.setup-command[hidden] {
+  display: none;
+}
+
+.setup-items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.setup-item {
+  min-width: 0;
+  padding: 24px 20px;
+}
+
+.setup-item + .setup-item {
+  border-left: 1px solid var(--line);
+}
+
+.setup-item > span {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--muted-2);
+  font-size: 11px;
+}
+
+.setup-item strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.setup-item p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.setup-item.is-ready strong {
+  color: #4e6249;
+}
+
+.setup-item.is-optional strong {
+  color: var(--amber);
+}
+
+.setup-item.is-error strong {
+  color: #9a4638;
+}
+
+.setup-item.is-loading {
+  opacity: 0.62;
 }
 
 /* ---------- 首次学习：本地冷启动报告（可折叠） ---------- */
@@ -1022,6 +1148,28 @@ footer {
   h1 {
     font-size: clamp(30px, 9vw, 40px);
     white-space: normal;
+  }
+
+  .setup-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-intro {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .setup-items {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-item {
+    padding: 18px 20px;
+  }
+
+  .setup-item + .setup-item {
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
 
   .learning-panel {
