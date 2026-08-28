@@ -72,6 +72,19 @@ class ProfileCliTests(unittest.TestCase):
         listed = json.loads(listing.stdout)
         self.assertEqual(listed["result"], [{"key": "经历", "type": "entries", "count": 1}])
 
+    def test_json_get_returns_non_sensitive_memory_reference(self) -> None:
+        self.run_store("set", "学号", "12345")
+        recalled = self.run_store("get", "学号", "--json")
+        payload = json.loads(recalled.stdout)
+        reference = payload["result"]["memory_reference"]
+
+        self.assertEqual(reference["schema_version"], 1)
+        self.assertEqual(reference["uri"], "memory://personal/profile/%E5%AD%A6%E5%8F%B7")
+        self.assertEqual(reference["label"], "Personal · 学号")
+        self.assertEqual(reference["path"], "personal/profile/exact.json")
+        self.assertNotIn("12345", json.dumps(reference, ensure_ascii=False))
+        self.assertFalse(reference["path"].startswith("/"))
+
     def test_transient_store_is_rejected_without_test_override(self) -> None:
         result = self.run_store("set", "字段", "值", allow_transient=False)
         self.assertEqual(result.returncode, 1)

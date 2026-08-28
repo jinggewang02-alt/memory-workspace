@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/memory-reference.schema.json",
+  "title": "Non-sensitive reference for one canonical Memory Home item",
+  "oneOf": [
+    {"$ref": "#/$defs/personal"},
+    {"$ref": "#/$defs/workspace"}
+  ],
+  "$defs": {
+    "personal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "uri", "scope", "kind", "label", "path", "item_key", "item_index"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "uri": {"type": "string", "pattern": "^memory://personal/profile/"},
+        "scope": {"const": "personal"},
+        "kind": {"const": "exact_profile"},
+        "label": {"type": "string", "minLength": 1},
+        "path": {"const": "personal/profile/exact.json"},
+        "item_key": {"type": "string", "minLength": 1},
+        "item_index": {"type": ["integer", "null"]}
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "uri", "scope", "kind", "label", "workspace_id", "item_id", "path"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "uri": {"type": "string", "pattern": "^memory://workspace/"},
+        "scope": {"const": "workspace"},
+        "kind": {"enum": ["project", "source", "page"]},
+        "label": {"type": "string", "minLength": 1},
+        "workspace_id": {"type": "string", "minLength": 1},
+        "item_id": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "pattern": "^(?!/)(?!.*\\.\\./).+"}
+      }
+    }
+  }
+}

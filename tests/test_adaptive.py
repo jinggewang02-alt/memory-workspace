@@ -169,6 +169,17 @@ class AdaptiveCaptureCliTests(unittest.TestCase):
             plan["policy"]["recommendation"], "project_candidate_review"
         )
 
+        nightly = self.result_json("nightly", "plan", "--json")["result"]
+        self.assertEqual(nightly["job"], "nightly-memory-processing")
+        self.assertEqual(nightly["status"], "ready")
+        self.assertEqual(nightly["preferred_local_time"], "22:00")
+        self.assertEqual(nightly["current_query_work"], "local_enqueue_only")
+        self.assertEqual(nightly["canonical_write_policy"], "candidate_only")
+        self.assertEqual(nightly["pending_episode_count"], len(nightly["episodes"]))
+        self.assertTrue(
+            any(item["conversation_id"] == "conv-test" for item in nightly["episodes"])
+        )
+
         resolved = self.result_json(
             "episode",
             "resolve",

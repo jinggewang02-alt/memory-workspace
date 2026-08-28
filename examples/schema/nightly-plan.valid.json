@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "job": "nightly-memory-processing",
+  "status": "nothing_to_process",
+  "generated_at": "2026-08-28T14:00:00Z",
+  "preferred_local_time": "22:00",
+  "fallback": "next_startup_or_idle",
+  "current_query_work": "local_enqueue_only",
+  "canonical_write_policy": "candidate_only",
+  "pending_episode_count": 0,
+  "episodes": []
+}

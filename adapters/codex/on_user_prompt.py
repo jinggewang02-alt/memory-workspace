@@ -6,8 +6,8 @@ hook 无法调用 LLM，只做确定性的关键词粗判，把该做的事作�
   - 命中"记"信号（记住/存一下/记录…）    → 注入 REMEMBER 指令，让 agent 用 store.py 存
   - 命中文件导入信号                       → 注入 IMPORT_FILE 指令，先 checklist 后存
   - 命中显式召回或个人材料/表单场景         → 注入 RECALL 指令，让 agent 按需 search/get
-  - 显式开启异步/自适应捕获                → 只做本地观察入队，可选注入后台处理提示
-  - 都不命中                              → 静默放行（零打扰）
+  - 普通 Query                            → 默认只做本地观察入队，晚间批处理
+  - 都不命中明确路由                      → 不注入提示，继续当前任务
 
 Codex 约定：本 hook 的 stdout 会作为 context 注入 agent。
 个人档案默认放 ~/.memory-home/personal/profile/exact.json；禁止静默回退到项目或临时目录。
@@ -66,7 +66,7 @@ RECALL_SIGNALS = EXPLICIT_RECALL_SIGNALS + PERSONAL_SCENARIO_SIGNALS
 
 # 这些信号只决定是否进入**异步待评估队列**，不代表内容应该被持久化。
 # `MWORK_ASYNC_CAPTURE=all` 会让所有非显式记忆消息进入队列；`signals`
-# 只处理下列可能具有跨轮次价值的表达；默认 `off`，不留存对话。
+# 只处理下列可能具有跨轮次价值的表达；默认 `adaptive`，仅做本地短期暂存。
 # `adaptive` 不使用这些表达做持久化判断，而是记录短期观察，之后按 Episode
 # 和用户激活的 Policy 异步处理。
 ASYNC_CAPTURE_SIGNALS = [
@@ -89,7 +89,7 @@ PROJECT_WIKI_TMPL = """[memory-workspace] PROJECT_WIKI
 1. 先排除只是在开发一个通用 Wiki 产品、写示例代码或讨论概念的情况；只有实际操作用户的本地知识库时才继续。
 2. 第一次写入前运行：python3 {workspace} doctor。只写本机持久目录，不回退到项目或 /tmp。
 3. 创建使用 `init`；发现与查询先用 `list --json` / `inspect --json`；明确收录文件时用 `source ingest`。
-4. Agent 生成的 Wiki 修改必须先 `operation propose-file` 并展示 Diff；只有用户明确批准后才 `approve` 和 `apply`。
+4. Agent 生成的 Wiki 修改必须经过 `operation propose-file`。如果本轮用户已明确说“记住/保存到指定 Workspace”，该请求就是这次精确内容的写入授权，可在同一轮 `approve` 和 `apply`，无需再次确认；归属或内容不清楚时只问一个短问题。
 5. 写入后必须运行 `check --json`。只在 status=OK 时报告完成。
 6. `source ingest` 只完成不可变收录和来源说明，不代表已经提炼事实或完成综合。
 7. 不覆盖 raw 来源，不保存秘密，不上传或公开真实内容，不伪造尚未实现的连接器或自动综合命令。
@@ -105,7 +105,8 @@ REMEMBER_TMPL = """[memory-workspace/profile] REMEMBER
 3. 1–3 个明确事实：无需事前提问，直接落盘并 get 读回校验：
    - 单值：   python3 {store} set <key> "<原文>"
    - 结构化： python3 {store} add <key> --field 字段=值 --field 字段=值 ...
-   然后告知："好的，帮你记下来了：<内容>。如果有问题请告诉我，我会帮你修改。"
+   - 读回：   python3 {store} get <key> --json
+   然后告知："好的，帮你记下来了：<内容>。如果有问题请告诉我，我会帮你修改。"，并在最末尾追加 `参考记忆：<memory_reference.label>`。
 4. 4 个及以上事实或多条经历：先给一个 checklist 让用户一次性核对，确认后批量保存并逐项 get 校验。
 5. **逐字保真**：原文照抄，不要润色、改写、纠正专有名词。
 
@@ -129,10 +130,11 @@ RECALL_TMPL = """[memory-workspace/profile] RECALL
 
 1. 先判断任务是否真的需要用户本人的事实；若只是通用模板、代码或示例人物，忽略本指令。
 2. 根据当前场景判断需要哪些字段。字段明确时 search 相关 key；范围较广时先 list 查看 key 概览。
-3. 只 get 本次需要的 key（结构化可加 --index N --field 字段），不要读取或展示整份档案。
+3. 只用 `get ... --json` 读取本次需要的 key（结构化可加 --index N --field 字段），不要读取或展示整份档案。
 4. **逐字使用 get 返回的姓名、号码、日期和专有名词**；自我介绍等叙述性文字可以适配场景，但不得改变事实。
 5. 缺少必需字段时只询问缺少的内容，不要编造。当前输入与档案冲突时提醒用户确认。
 6. 召回是只读操作；除非用户明确要求修改记忆，否则不要把本次内容写回档案。
+7. 如果回答实际使用了召回值，在最末尾追加一行 `参考记忆：<memory_reference.label>`；不显示完整敏感值或绝对路径。
 
 档案文件：{store_hint}"""
 
@@ -141,8 +143,8 @@ ASYNC_CAPTURE_TMPL = """[memory-workspace] ASYNC_CAPTURE
 本轮已通过本地轻量写入进入异步队列：{event_id}。
 
 1. 先完成并返回用户当前 Query；不得等待记忆判断，不得在主链路调用模型做捕获分类。
-2. 仅当当前环境支持回答后仍能安全存活的后台任务或 Subagent，且当前没有队列 Worker 时，才派发一个 Worker 批量处理 pending；不要为每个 event 重复创建 Subagent，也不要等待 Worker。
-3. Worker 先运行 `python3 {capture} worker plan --json`，按 conversation Episode 批量读取；不要把单条关键词当成持久化结论。
+2. 不要在每次回答后立即分类，也不要为每个 event 创建一个 Subagent。由宿主在当地晚间批量运行，若没有调度能力则在下次启动或空闲时补跑。
+3. 晚间 Worker 先运行 `python3 {capture} nightly plan --json`，按 conversation Episode 批量读取；不要把单条关键词当成持久化结论。
 4. Worker 用 `episode show` 获取证据，并用 `episode resolve` 生成 ignore/session/project/profile 兼容结果；project/profile 只产生候选，不得直接写正式 Workspace 或 Personal Memory。`feedback_only` Episode 用 `episode resolve --decision session` 记录反馈并关闭，不得重复生成候选。
 5. 正式写入仍需用户审阅，并由单一 Writer 通过现有 workspace.py/store.py 流程完成。"""
 
@@ -175,7 +177,7 @@ def exact_profile_hint():
 
 
 def enqueue_async_capture(event, prompt, *, direct_route):
-    mode = os.environ.get("MWORK_ASYNC_CAPTURE", "off").strip().lower()
+    mode = os.environ.get("MWORK_ASYNC_CAPTURE", "adaptive").strip().lower()
     if mode in {"", "0", "false", "off"}:
         return None
     if mode not in {"all", "signals", "adaptive"}:
@@ -266,7 +268,7 @@ def main():
         prompt,
         direct_route=direct_route,
     )
-    if queued and os.environ.get("MWORK_ASYNC_CAPTURE_HINT", "1") != "0":
+    if queued and os.environ.get("MWORK_ASYNC_CAPTURE_HINT", "0") != "0":
         instructions.append(
             ASYNC_CAPTURE_TMPL.format(event_id=queued["event_id"], capture=CAPTURE)
         )

@@ -81,7 +81,27 @@ class QuickstartTests(unittest.TestCase):
         self.assertEqual(first["external_connectors"]["lark"], "disabled_by_default")
         self.assertEqual(first["schema_version"], 2)
         self.assertEqual(first["primary_action"]["kind"], "continue")
-        self.assertEqual(len(first["next_actions"]), 1)
+        self.assertEqual(first["primary_action"]["label"], "直接开始")
+        self.assertEqual(
+            [item["id"] for item in first["menu"]],
+            ["continue", "import", "review"],
+        )
+        self.assertTrue(first["menu"][0]["recommended"])
+        self.assertEqual(len(first["next_actions"]), 3)
+        self.assertEqual(
+            first["memory_behavior"]["explicit_save"], "direct_with_readback"
+        )
+        self.assertEqual(
+            first["memory_behavior"]["processing"], "nightly_or_next_startup"
+        )
+        self.assertEqual(
+            first["memory_behavior"]["scheduling_status"],
+            "host_integration_required",
+        )
+        self.assertEqual(
+            first["memory_behavior"]["canonical_write_policy"],
+            "candidate_only_without_explicit_save",
+        )
         self.assertEqual(first["notices"], [])
         self.assertEqual(first["ui"]["status"], "not_started")
         self.assertIsNone(first["ui"]["url"])

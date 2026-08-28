@@ -48,6 +48,12 @@ Exit codes are `0` for `READY`, `1` when setup is required, and `2` for an
 unsupported installation. The JSON report is the contract; do not infer
 success from an empty terminal response.
 
+The quickstart receipt also describes proactive-memory behavior. A value of
+`memory_behavior.scheduling_status=host_integration_required` means the data
+protocol and nightly command are available, not that an OS timer or durable
+background Worker is already running. The Agent host should register its own
+evening trigger, or use the declared next-startup/idle fallback.
+
 ## Runtime modes
 
 `local-full` means the current package can run through its local CLI. A setup

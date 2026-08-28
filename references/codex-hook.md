@@ -27,28 +27,40 @@
 7. 说“创建一个项目知识库”或“把这个文件收录进我的 Wiki”。Agent 应使用
    `workspace.py`，并在写入后运行 `check`。
 
-## 可选异步候选捕获
+## 默认主动暂存与晚间加工
 
-异步捕获默认关闭。开启后，Hook 只做本地事件入队，不在用户 Query 的关键链路运行
-模型分类：
+Hook 默认使用 `adaptive`：普通 Query 只做一次本地事件入队，不在用户 Query 的关键链路
+运行模型分类，也不向每轮注入提示。明确“记住”仍按正式写入路径处理。用户可关闭或改为
+更窄的 signals 模式：
 
 ```bash
-export MWORK_ASYNC_CAPTURE=signals
+export MWORK_ASYNC_CAPTURE=off      # 关闭普通 Query 暂存
+export MWORK_ASYNC_CAPTURE=signals  # 只暂存粗粒度高价值信号
 export MWORK_CAPTURE_RETENTION_DAYS=7
-export MWORK_ASYNC_CAPTURE_HINT=1
+export MWORK_ASYNC_CAPTURE_HINT=1   # 可选；默认 0，不增加每轮提示
 ```
 
 - `signals`：只把可能具有跨轮次价值的非显式记忆消息入队；
 - `all`：把所有没有明确 Workspace/Exact Profile 路由的消息入队，隐私和存储成本更高；
 - `adaptive`：把每条 Query 当成本地短期观察，之后由 Episode + 已激活的个人 Policy
   异步判断；明确写入只作为反馈，不能再生成 Candidate；
-- `off`：默认值，不留存异步事件；
-- `MWORK_ASYNC_CAPTURE_HINT=0`：只入队，不向 Agent 注入后台派发提示，适合外部 Worker/UI。
+- `off`：不留存普通 Query 的异步事件；
+- `MWORK_ASYNC_CAPTURE_HINT=0`：默认值，只入队，不向 Agent 注入提示，适合宿主调度器、
+  外部 Worker 或 UI。
 
 `signals` / `all` 下，显式 Workspace/Exact Profile 写入和召回不重复进入异步队列；`adaptive`
 下会留下 observation-only 事件供 Policy 学习，但不会重复生成 Candidate。完整 Worker、
 Candidate 审阅和跨 Agent 降级协议见 [async-capture.md](async-capture.md)，历史学习见
 [adaptive-policy.md](adaptive-policy.md)。
+
+宿主建议在用户当地 22:00 执行一次：
+
+```bash
+python3 <skill-dir>/scripts/capture.py nightly plan --json
+```
+
+没有晚间调度能力时，下次启动、空闲或打开 UI 时补跑。夜间 Worker 只能生成 Candidate，
+不得把未明确要求保存的内容直接写进正式 Memory Home。
 
 ## 持久化
 

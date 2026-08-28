@@ -67,7 +67,20 @@ def _render_text(result: dict[str, object]) -> None:
             created, initialized["home_path"]
         )
     )
-    print("[memory-workspace] 已准备好。现在直接继续使用 Agent 即可。")
+    print("[memory-workspace] 已准备好。你可以选择：")
+    menu = result.get("menu")
+    assert isinstance(menu, list)
+    for index, item in enumerate(menu, 1):
+        assert isinstance(item, dict)
+        recommended = "（推荐）" if item.get("recommended") else ""
+        print(
+            "  {0}. {1}{2} — {3}".format(
+                index,
+                item["label"],
+                recommended,
+                item["description"],
+            )
+        )
     learning = result["history_learning"]
     assert isinstance(learning, dict)
     if learning["status"] == "awaiting_review":

@@ -9,13 +9,11 @@ The queue removes model classification from the user's critical path. It does
 not make memory writes automatic.
 
 ```text
-user query
-    ↓
-main Agent completes the task
+ordinary user query
     ↓ local event enqueue only
-user receives the answer
-    ↓ optional background / next idle run
-Worker resolves event
+main Agent completes the task and user receives the answer
+    ↓ one nightly batch / next startup fallback
+Worker resolves the conversation Episode
     ↓
 ignore / session / Workspace Candidate / Personal Candidate
     ↓ user review
@@ -81,20 +79,24 @@ python3 <skill-dir>/scripts/capture.py event enqueue \
 Do not wait for classification before answering. Do not claim that anything was
 remembered merely because the event is pending.
 
-If the environment guarantees a background task or Subagent survives the
-current response, dispatch at most one Worker for the queue. Let that Worker
-batch pending events by conversation after a short debounce; do not create one
-Subagent per event. Otherwise leave the event pending. A durable pending event
-is the portability fallback.
+Do not dispatch one Worker per response. A host with scheduling support should
+run one batch in the user's local evening (recommended `22:00`). Otherwise leave
+the event pending and process it on next startup, during idle time, or when the
+review UI opens. A durable pending event is the portability fallback.
 
 ## Worker path
 
-Plan and inspect pending Episodes:
+Plan the nightly batch and inspect pending Episodes:
 
 ```bash
+python3 <skill-dir>/scripts/capture.py nightly plan --json
 python3 <skill-dir>/scripts/capture.py worker plan --json
 python3 <skill-dir>/scripts/capture.py episode show <episode-id> --json
 ```
+
+`nightly plan` is the portable scheduling handoff. It declares the preferred
+local time, startup/idle fallback, and `candidate_only` write policy. It does not
+call a model or install an OS scheduler. The host owns the actual timer.
 
 Use one of four decisions:
 
@@ -221,11 +223,14 @@ python3 <skill-dir>/scripts/capture.py candidate reject <candidate-id> \
   --json
 ```
 
-## Codex adapter and portable fallback
+## Adapter default and portable fallback
 
-The Codex hook keeps async capture off by default. Enable one of:
+The included hook defaults to `adaptive`: ordinary Query text is staged locally
+for a short retention window, while explicit save routes remain direct and are
+also recorded as observation-only feedback. Override it when needed:
 
 ```bash
+export MWORK_ASYNC_CAPTURE=off      # disable implicit local staging
 export MWORK_ASYNC_CAPTURE=signals  # only broad potential-value signals
 export MWORK_ASYNC_CAPTURE=all      # all prompts without a direct Workspace/Exact Profile route
 export MWORK_ASYNC_CAPTURE=adaptive # all prompts as observations; decide later by Episode + Policy
@@ -235,20 +240,20 @@ Optional settings:
 
 ```bash
 export MWORK_CAPTURE_RETENTION_DAYS=7
-export MWORK_ASYNC_CAPTURE_HINT=1
+export MWORK_ASYNC_CAPTURE_HINT=1 # optional host instruction; default is silent
 export MWORK_WORKSPACE_ID=<workspace-id>
 ```
 
-`MWORK_ASYNC_CAPTURE_HINT=1` injects a small instruction telling a capable Agent
-to dispatch a background Worker without waiting. Set it to `0` when an external
-daemon or UI consumes the queue.
+`MWORK_ASYNC_CAPTURE_HINT=1` injects a small instruction describing the nightly
+handoff. It is `0` by default so the current Query receives no extra prompt
+tokens when an external host, daemon, or UI consumes the queue.
 
 In `adaptive` mode, explicit Workspace/Exact Profile compatibility routes are stored as
 observation-only feedback and cannot create another Candidate. Other Agent
 environments should implement the same event/resolution/candidate
 contract rather than copying Codex-specific hook names. If they cannot run
-background work, process pending events on next startup, during idle time, when
-the UI opens the inbox, or through an explicit sync command.
+nightly scheduling, process pending events on next startup, during idle time,
+when the UI opens the inbox, or through an explicit sync command.
 
 ## Cleanup
 

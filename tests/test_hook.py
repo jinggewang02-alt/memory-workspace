@@ -15,6 +15,9 @@ HOOK = ROOT / "adapters" / "codex" / "on_user_prompt.py"
 
 class CodexHookTests(unittest.TestCase):
     def run_hook(self, prompt: str, *, environment: dict[str, str] | None = None) -> str:
+        environment = dict(os.environ if environment is None else environment)
+        if "MWORK_ASYNC_CAPTURE" not in environment and "MWORK_CAPTURE_DIR" not in environment:
+            environment["MWORK_ASYNC_CAPTURE"] = "off"
         result = subprocess.run(
             [sys.executable, str(HOOK)],
             cwd=ROOT,
@@ -57,6 +60,7 @@ class CodexHookTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             environment = os.environ.copy()
             environment["MWORK_ASYNC_CAPTURE"] = "signals"
+            environment["MWORK_ASYNC_CAPTURE_HINT"] = "1"
             environment["MWORK_CAPTURE_DIR"] = str(Path(directory) / "capture")
             environment["MWORK_ALLOW_TRANSIENT"] = "1"
             output = self.run_hook(
@@ -89,6 +93,7 @@ class CodexHookTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             environment = os.environ.copy()
             environment["MWORK_ASYNC_CAPTURE"] = "adaptive"
+            environment["MWORK_ASYNC_CAPTURE_HINT"] = "1"
             environment["MWORK_CAPTURE_DIR"] = str(Path(directory) / "capture")
             environment["MWORK_ALLOW_TRANSIENT"] = "1"
             output = self.run_hook("解释一下二分查找", environment=environment)
@@ -105,6 +110,7 @@ class CodexHookTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             environment = os.environ.copy()
             environment["MWORK_ASYNC_CAPTURE"] = "adaptive"
+            environment["MWORK_ASYNC_CAPTURE_HINT"] = "1"
             environment["MWORK_CAPTURE_DIR"] = str(Path(directory) / "capture")
             environment["MWORK_ALLOW_TRANSIENT"] = "1"
             output = self.run_hook("请记住我的学号是 12345", environment=environment)
@@ -114,6 +120,22 @@ class CodexHookTests(unittest.TestCase):
             document = json.loads(event_path.read_text(encoding="utf-8"))
             self.assertEqual(document["routing"]["direct_route"], "remember")
             self.assertFalse(document["routing"]["capture_eligible"])
+
+    def test_default_mode_silently_stages_for_nightly_processing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            environment = os.environ.copy()
+            environment.pop("MWORK_ASYNC_CAPTURE", None)
+            environment.pop("MWORK_ASYNC_CAPTURE_HINT", None)
+            environment["MWORK_CAPTURE_DIR"] = str(Path(directory) / "capture")
+            environment["MWORK_ALLOW_TRANSIENT"] = "1"
+
+            output = self.run_hook("解释一下二分查找", environment=environment)
+
+            self.assertEqual(output, "")
+            event_path = next((Path(directory) / "capture" / "events").glob("evt_*.json"))
+            document = json.loads(event_path.read_text(encoding="utf-8"))
+            self.assertEqual(document["routing"]["direct_route"], "none")
+            self.assertTrue(document["routing"]["capture_eligible"])
 
 
 if __name__ == "__main__":

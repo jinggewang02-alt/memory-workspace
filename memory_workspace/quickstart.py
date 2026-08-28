@@ -130,6 +130,15 @@ def prepare(
         },
         "external_connectors": {"lark": "disabled_by_default"},
         "capture": capture_check,
+        "memory_behavior": {
+            "explicit_save": "direct_with_readback",
+            "implicit_capture": "adaptive_local_staging",
+            "processing": "nightly_or_next_startup",
+            "preferred_local_time": "22:00",
+            "scheduling_status": "host_integration_required",
+            "canonical_write_policy": "candidate_only_without_explicit_save",
+            "opt_out_environment": "MWORK_ASYNC_CAPTURE=off",
+        },
         "ui": {
             "status": "not_started",
             "url": None,
@@ -139,14 +148,36 @@ def prepare(
             "requires_same_device_browser": True,
             "requires_long_lived_process": True,
         },
-        "message": "Memory Workspace is ready. Continue using the Agent normally.",
+        "message": "Memory Workspace is ready. Choose a simple next path.",
         "primary_action": {
             "kind": "continue",
-            "label": "Continue using the Agent",
+            "label": "直接开始",
         },
+        "menu": [
+            {
+                "id": "continue",
+                "label": "直接开始",
+                "description": "继续正常对话；明确要求会立即记住，其余内容晚间整理。",
+                "recommended": True,
+            },
+            {
+                "id": "import",
+                "label": "导入已有内容",
+                "description": "带入已有文件，或当前 Agent 已获授权可见的历史。",
+                "recommended": False,
+            },
+            {
+                "id": "review",
+                "label": "查看我的记忆",
+                "description": "查看已保存内容、习惯草稿和待审候选。",
+                "recommended": False,
+            },
+        ],
         "notices": notices,
         "next_actions": [
-            "Continue using the Agent normally; contextual memory workflows activate when needed."
+            "直接开始：继续正常对话；明确要求会立即记住，其余内容晚间整理。",
+            "导入已有内容：带入已有文件，或当前 Agent 已获授权可见的历史。",
+            "查看我的记忆：查看已保存内容、习惯草稿和待审候选。",
         ],
         "capability_status": report["status"],
     }

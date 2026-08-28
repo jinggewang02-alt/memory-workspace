@@ -61,10 +61,14 @@ Memory Home、Personal Learning、Workspace 和 Capture 的实际路径，以及
 此模式不会启动常驻 UI；收据中的 `ui.status=not_started` 和 `ui.url=null` 必须按字面
 理解，不得把 `launch_command` 误报成已经可以访问的链接。
 
-首次准备成功后，面向用户只需说明“Memory Workspace 已准备好，可以直接继续使用
-Agent”。不要列出“创建 Workspace、保存个人资料、收录文件、打开 UI、配置历史”之类的
-功能菜单。它们是内部能力，不是用户必须完成的初始化选项：真实项目、个人资料和文件
-出现时再按场景触发；没有历史来源时安静延后；没有待审内容时不主动要求打开 UI。
+首次准备成功后，面向用户只提供三个简洁路径，不展示内部模块清单：
+
+1. `直接开始（推荐）`：继续正常对话；明确要求立即保存，其余 Query 仅本地暂存并晚间整理。
+2. `导入已有内容`：带入已有文件，或当前 Agent 已获授权可见的历史。
+3. `查看我的记忆`：查看已保存内容、习惯草稿和待审 Candidate。
+
+真实项目、个人资料和文件出现时再按场景路由；没有历史来源时安静延后；没有待审内容时
+不主动要求打开 UI。不要再把 Workspace、Profile、文件、UI、历史拆成五个初始化选项。
 
 只有用户需要处理待审内容，且当前 Agent 能确认浏览器与执行环境位于同一台设备、命令
 可以保持长期运行时，才运行：
@@ -204,7 +208,10 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
    整个索引或 Workspace 注入上下文。
 3. 回答先给结论；材料性事实指向对应 `[[sources/S-...]]`，并标明推断、用户观点、
    分歧或证据缺口。
-4. 普通问题优先使用已有快照。只有用户要求当前信息，或旧快照会实质影响答案时，
+4. 若最终回答实际使用了查询返回的 Memory Home 内容，在回答最末尾追加一行简短的
+   `参考记忆：...`；只列实际使用项，不暴露绝对路径或敏感值。完整格式见
+   [references/response-references.md](references/response-references.md)。
+5. 普通问题优先使用已有快照。只有用户要求当前信息，或旧快照会实质影响答案时，
    才进入连接器刷新流程。
 
 当前 CLI 已实现初始化、来源收录、审阅式 Wiki 文件变更、索引和本地查询。连接器刷新
@@ -216,10 +223,12 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 
 异步捕获用于降低当前 Query 的模型等待时间，不得改变“少持久化、先审阅”的边界：
 
-1. 主 Agent 先完成用户任务；同步链路最多执行一次本地 `event enqueue`，不得调用模型
-   做捕获分类。`adaptive` 模式只观察，不在当前 Query 中决定是否持久化。
-2. 只有环境明确支持回答后仍能存活的后台任务或 Subagent 时才立即派发；否则保留
-   pending，由下次启动、空闲任务、UI 或手动 `capture.py` 处理。
+1. 适配器默认使用 `adaptive`：主 Agent 先完成用户任务；同步链路最多执行一次本地
+   `event enqueue`，不得调用模型做捕获分类，也不向每轮注入提示。用户可用
+   `MWORK_ASYNC_CAPTURE=off` 关闭本地暂存。
+2. 宿主应在当地晚间（建议 22:00）批量运行 `capture.py nightly plan --json`，再派发至多
+   一个 Worker。没有调度能力时保留 pending，由下次启动、空闲任务、UI 或手动命令补跑；
+   不要为每条 event 创建一个 Worker/Subagent。
 3. Worker 先按 conversation 和时间间隔聚合 Episode，再解析为 `ignore`、`session`、
    `project` 或 `profile`。只有后两者产生 Candidate；一个 Episode 默认只产生一个
    Candidate，Worker 不得直接写正式 Workspace 或 Personal Memory。
@@ -227,7 +236,7 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
    会通过 Workspace Operation 或 Exact Profile 兼容写入流程完成正式写入，完成读回/
    check 后自动生成 application receipt；Writer 失败时 Candidate 保持 `approved`，
    不得手工伪造 applied。
-5. 异步队列保存本机明文暂存，默认关闭，拒绝密码、Token、Cookie、私钥等秘密，并
+5. 异步队列保存本机明文短期暂存，默认 `adaptive`，拒绝密码、Token、Cookie、私钥等秘密，并
    应定期清理过期原始事件。
 6. 历史学习只把后来出现明确 Workspace/Exact Profile 保存行为的 Episode 当正样本；普通
    高频问法不是正样本。Policy 先生成 draft，必须由用户激活；拒绝和“抑制相似项”
@@ -272,6 +281,8 @@ python3 <skill-dir>/scripts/store.py doctor
 - 4 个及以上事实、多条结构化经历或文件导入：先给一份 checklist；用户确认后写入并
   逐项读回。用户明确说无需核对时可跳过确认，但不得跳过读回。
 - 召回时先 `search` 或 `list`，再只 `get` 当前任务需要的字段；不得注入整份档案。
+- `get --json` 返回 `memory_reference`。如果回答使用了该值，最末尾追加简短
+  `参考记忆：<label>`；保存后读回的确认回复同样适用。
 - 当前输入与档案冲突时，提醒用户选择本次使用哪个值；不得顺便覆盖。
 - 删除属于破坏性操作；除非用户已经给出精确 key 或条目并明确要求删除，否则先确认。
 
@@ -291,8 +302,9 @@ python3 <skill-dir>/scripts/store.py get 快递地址
 ## 完成标准
 
 - Workspace 写入：命令成功，并且随后 `check` 返回 `status: OK`。
-- Agent 生成的 Wiki 修改：Operation 必须经过 `proposed → approved → applied`；除非
-  用户在当前请求中明确批准，否则停在 proposed。
+- Agent 生成的 Wiki 修改：Operation 必须经过 `proposed → approved → applied`。用户在
+  当前请求中明确要求把精确内容“记住/保存到指定 Workspace”时可在同一轮完成三步；
+  其他情况没有明确批准就停在 proposed。
 - 异步捕获：入队成功只表示 `pending`；Worker 只生成 Candidate。只有用户批准、正式
   写入完成且已有读回/check 证据时，才能标记 `applied`。
 - 首次历史学习：`onboarding run` 成功、`query-habits.md` 可读且 Policy 仍为 draft 时
