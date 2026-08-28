@@ -13,11 +13,16 @@ from . import home
 MINIMUM_PYTHON = (3, 10)
 REQUIRED_RESOURCES = (
     "SKILL.md",
+    "scripts/quickstart.py",
     "scripts/capture.py",
     "scripts/connectors.py",
     "scripts/home.py",
     "scripts/store.py",
     "scripts/workspace.py",
+    "memory_workspace/quickstart.py",
+    "ui/index.html",
+    "ui/app.css",
+    "ui/app.js",
     "schemas/memory-home.schema.json",
     "schemas/query-habits.schema.json",
     "schemas/onboarding-state.schema.json",

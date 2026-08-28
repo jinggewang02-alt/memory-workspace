@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from memory_workspace import capture
+from memory_workspace import capture, home
 from memory_workspace.io import MemoryWorkspaceError
 from memory_workspace.ui_server import create_server
 
@@ -19,14 +19,36 @@ from memory_workspace.ui_server import create_server
 class LocalReviewInboxTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
-        self.capture_root = Path(self.temporary.name) / "capture"
-        self.previous_override = os.environ.get("MWORK_ALLOW_TRANSIENT")
+        self.memory_home = Path(self.temporary.name) / "memory-home"
+        self.capture_root = self.memory_home / "system" / "capture"
+        self.learning_root = self.memory_home / "personal" / "learning"
+        self.workspaces_root = self.memory_home / "workspaces"
+        self.profile_path = self.memory_home / "personal" / "profile" / "exact.json"
+        self.previous_environment = {
+            key: os.environ.get(key)
+            for key in (
+                "MEMORY_HOME",
+                "MWORK_ALLOW_TRANSIENT",
+                "MEMORY_HOME_ALLOW_TRANSIENT",
+                "MWORK_HISTORY_FILE",
+                "MWORK_HISTORY_ADAPTER",
+            )
+        }
+        os.environ["MEMORY_HOME"] = str(self.memory_home)
         os.environ["MWORK_ALLOW_TRANSIENT"] = "1"
+        os.environ["MEMORY_HOME_ALLOW_TRANSIENT"] = "1"
+        os.environ.pop("MWORK_HISTORY_FILE", None)
+        os.environ.pop("MWORK_HISTORY_ADAPTER", None)
+        home.init_home(root=self.memory_home)
         self.server = create_server(
             host="127.0.0.1",
             port=0,
             root=self.capture_root,
+            learning_root=self.learning_root,
+            memory_home=self.memory_home,
             token="synthetic-test-token",
+            profile_path=self.profile_path,
+            workspaces_root=self.workspaces_root,
         )
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -38,10 +60,11 @@ class LocalReviewInboxTests(unittest.TestCase):
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=2)
-        if self.previous_override is None:
-            os.environ.pop("MWORK_ALLOW_TRANSIENT", None)
-        else:
-            os.environ["MWORK_ALLOW_TRANSIENT"] = self.previous_override
+        for key, value in self.previous_environment.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
         self.temporary.cleanup()
 
     def get(self, path: str) -> tuple[int, dict[str, object], dict[str, str]]:
@@ -123,12 +146,18 @@ class LocalReviewInboxTests(unittest.TestCase):
         self.assertIn("先理解你的提问方式", html)
         self.assertEqual(headers["Cache-Control"], "no-store")
         self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
+        with urlopen(self.base_url + "/app.css", timeout=3) as response:
+            css = response.read().decode()
+        self.assertIn("[hidden]", css)
 
         status, payload, _ = self.get("/api/overview")
         self.assertEqual(status, 200)
         overview = payload["overview"]
         self.assertEqual(overview["counts"]["proposed"], 0)
         self.assertEqual(overview["pending_episode_count"], 0)
+        self.assertTrue(overview["readiness"]["ready_to_use"])
+        self.assertTrue(overview["readiness"]["history_learning"]["optional"])
+        self.assertEqual(overview["readiness"]["workspaces"]["count"], 0)
 
     def test_first_learning_report_round_trip(self) -> None:
         _, before, _ = self.get("/api/onboarding")
@@ -162,6 +191,21 @@ class LocalReviewInboxTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(confirmed["onboarding"]["status"], "completed")
         self.assertTrue(confirmed["onboarding"]["policy_active"])
+
+    def test_invalid_optional_history_does_not_break_ready_ui(self) -> None:
+        invalid = Path(self.temporary.name) / "invalid-history.txt"
+        invalid.write_text("not jsonl\n", encoding="utf-8")
+        os.environ["MWORK_HISTORY_FILE"] = str(invalid)
+        os.environ["MWORK_HISTORY_ADAPTER"] = "synthetic-ui-adapter"
+
+        _, overview, _ = self.get("/api/overview")
+        self.assertTrue(overview["overview"]["readiness"]["ready_to_use"])
+        self.assertEqual(
+            overview["overview"]["readiness"]["history_learning"]["status"],
+            "needs_attention",
+        )
+        _, onboarding_status, _ = self.get("/api/onboarding")
+        self.assertEqual(onboarding_status["onboarding"]["status"], "needs_attention")
 
     def test_bad_host_and_non_loopback_bind_are_rejected(self) -> None:
         with self.assertRaises(MemoryWorkspaceError):

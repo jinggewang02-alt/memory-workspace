@@ -9,6 +9,7 @@ const state = {
   revealedContent: null,
   onboarding: null,
   onboardingRunning: false,
+  overview: null,
 };
 
 const labels = {
@@ -119,6 +120,8 @@ function activateStatus(status) {
 
 async function loadOverview() {
   const { overview } = await api("/api/overview");
+  state.overview = overview;
+  renderSetup(overview.readiness);
   $("#stat-proposed").textContent = overview.counts.proposed;
   $("#stat-approved").textContent = overview.counts.approved;
   $("#stat-applied").textContent = overview.counts.applied;
@@ -133,6 +136,64 @@ async function loadOverview() {
     $("#policy-name").textContent = "未启用";
     $("#policy-note").textContent = "先由你决定，再慢慢学习";
   }
+}
+
+function updateSetupItem(selector, value, copy, status) {
+  const item = $(selector);
+  item.classList.remove("is-loading", "is-ready", "is-optional", "is-error");
+  item.classList.add(status);
+  item.querySelector("strong").textContent = value;
+  item.querySelector("p").textContent = copy;
+}
+
+function renderSetup(readiness) {
+  const ready = Boolean(readiness?.ready_to_use);
+  const command = $("#setup-command");
+  $("#setup-state").textContent = ready ? "可以开始" : "需要初始化";
+  $("#setup-state").classList.toggle("is-ready", ready);
+  $("#setup-title").textContent = ready
+    ? "本地记忆已经准备好"
+    : "还需要完成一次本地初始化";
+  $("#setup-copy").textContent = ready
+    ? "现在可以直接让 Agent 记录个人信息或维护项目知识。"
+    : "请在项目目录运行一键启动命令，然后刷新此页面。";
+  command.hidden = ready;
+
+  updateSetupItem(
+    "#setup-memory",
+    ready ? "已准备" : "未完成",
+    ready ? "数据保存在本机持久目录。" : "尚未找到完整的 Memory Home。",
+    ready ? "is-ready" : "is-error",
+  );
+
+  const historyStatus = readiness?.history_learning?.status;
+  const historyCopy = {
+    completed: ["已启用", "个人 Query 习惯已经确认。", "is-ready"],
+    awaiting_review: ["等待确认", "草稿已生成，需要你审阅。", "is-optional"],
+    ready: ["可以学习", "已发现授权的历史来源。", "is-optional"],
+    needs_history_source: ["稍后连接", "不影响现在开始使用。", "is-optional"],
+    needs_attention: ["需要检查", "历史来源异常，不影响基础使用。", "is-error"],
+  }[historyStatus] || ["按需开启", "不影响现在开始使用。", "is-optional"];
+  updateSetupItem("#setup-history", ...historyCopy);
+
+  const workspaceCount = readiness?.workspaces?.count || 0;
+  updateSetupItem(
+    "#setup-workspaces",
+    workspaceCount ? workspaceCount + " 个" : "按需创建",
+    workspaceCount
+      ? "Agent 可以继续维护已有项目。"
+      : "第一次处理真实项目时再创建。",
+    workspaceCount ? "is-ready" : "is-optional",
+  );
+}
+
+function renderSetupError() {
+  $("#setup-state").textContent = "无法读取";
+  $("#setup-title").textContent = "暂时无法确认本地状态";
+  $("#setup-copy").textContent = "请确认本地服务仍在运行，再刷新页面。";
+  ["#setup-memory", "#setup-history", "#setup-workspaces"].forEach((selector) => {
+    updateSetupItem(selector, "读取失败", "本地状态暂时不可用。", "is-error");
+  });
 }
 
 function renderHabits(report) {
@@ -183,8 +244,14 @@ function renderOnboarding() {
   actions.hidden = true;
 
   if (status === "needs_history_source") {
-    badge.textContent = "等待历史来源";
-    copy.textContent = data.history_source?.boundary || "请由当前 Agent 提供它有权限读取的历史。";
+    badge.textContent = "可选";
+    copy.textContent = "可稍后由当前 Agent 提供它有权限读取的历史，不影响基础使用。";
+    form.hidden = false;
+    return;
+  }
+  if (status === "needs_attention") {
+    badge.textContent = "需要检查";
+    copy.textContent = data.error || "历史来源暂时无法读取，但不影响基础使用。";
     form.hidden = false;
     return;
   }
@@ -692,6 +759,7 @@ async function init() {
     await Promise.all([loadOverview(), loadCandidates(), loadOnboarding()]);
   } catch (error) {
     showToast(error.message, true);
+    renderSetupError();
     $("#candidate-list").replaceChildren(element("div", "loading", "无法连接本地数据。请确认服务仍在运行。"));
   }
 }

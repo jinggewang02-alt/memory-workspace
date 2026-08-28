@@ -58,67 +58,62 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 
 ## 5 分钟开始使用
 
-### 1. 下载项目
+### 下载并启动
 
 ```bash
 git clone https://github.com/jinggewang02-alt/memory-workspace.git
 cd memory-workspace
+python3 scripts/quickstart.py
 ```
 
-运行要求：Python 3.10+，可执行本地命令，并拥有一个不会随会话消失的可写目录。
+这一个命令会依次完成能力检查、初始化 `~/.memory-home/`，然后只在
+`127.0.0.1` 启动本地 UI。命令可重复运行；已有文件不会被重建或覆盖。
 
-### 2. 检查 Agent 环境
+运行要求是 Python 3.10+、可执行本地命令，以及一个不会随会话消失的可写目录。
+缺少条件时，命令会停在写入前，并明确返回
+`NEEDS_RUNTIME`、`NEEDS_PERSISTENT_PATH`、`NEEDS_PERMISSION` 或 `UNSUPPORTED`。
+
+如果由 Agent 完成安装，使用机器可读模式。它会初始化目录并返回收据，但不会占用前台
+进程启动 UI：
 
 ```bash
-python3 scripts/bootstrap.py --json
+python3 scripts/quickstart.py --json
 ```
 
-探测结果会明确返回 `READY`、`NEEDS_RUNTIME`、`NEEDS_PERSISTENT_PATH`、`NEEDS_PERMISSION` 或 `UNSUPPORTED`。这一步只读，不会修改 Agent 或外部平台。
+返回 `READY` 后，基础能力已经可用。此时没有历史来源、没有 Workspace、没有启用飞书，
+都属于正常的可选状态，不是安装失败。如果当前 Agent 已经通过标准适配器显式交付了
+授权历史，一键准备会自动执行一次有界的近 30 天学习，并停在 `awaiting_review` 等待确认。
+历史文件损坏或不符合协议时只标记为 `needs_attention`，不会撤销已经完成的基础初始化。
 
-### 3. 初始化项目 Workspace
+### 按需创建第一个 Workspace
 
 ```bash
-python3 scripts/home.py doctor
-python3 scripts/home.py init
-python3 scripts/workspace.py doctor
 python3 scripts/workspace.py init my-workspace --name "My Workspace"
 ```
 
-精确个人资料可以单独检查：
+不需要提前创建空项目。第一次出现真实项目时，再让 Agent 建立对应 Workspace。
 
-```bash
-python3 scripts/store.py doctor
-```
-
-旧版本用户先预览迁移；确认无冲突后再显式复制，旧文件不会删除：
-
-```bash
-python3 scripts/home.py migration-plan --json
-python3 scripts/home.py migrate --json
-```
-
-### 4. 检查首次历史学习
+### 按需学习近 30 天 Query
 
 ```bash
 python3 scripts/capture.py onboarding status --json
-```
-
-如果当前 Agent 具备已授权的历史读取能力，可以执行有边界的近 30 天 Query 学习；如果没有，用户可以显式提供规范化 JSONL 文件：
-
-```bash
 python3 scripts/capture.py onboarding run --file /absolute/path/to/history.jsonl
 ```
 
-系统会先生成可阅读的习惯报告和策略草稿。只有用户确认后，策略才会生效：
+只有当前 Agent 已获授权并能提供规范化历史时才运行。没有历史来源时，UI 会显示“稍后
+连接”，基础记忆与项目维护仍可使用。学习结果先形成草稿，用户确认后才激活：
 
 ```bash
 python3 scripts/capture.py habits show
 python3 scripts/capture.py onboarding confirm
 ```
 
-不同 Agent 是否能直接访问历史，取决于它自身提供的能力和用户授权。Memory Workspace 不会静默搜索其他账号、扩大读取范围或绕过平台权限。
+Memory Workspace 不会静默搜索其他账号、扩大读取范围或绕过平台权限。
 
-如果用户明确希望把飞书作为项目证据源，可以单独启用 Lark Connector：
+### 按需启用飞书
+
+只有用户明确希望把飞书作为某个 Workspace 的项目证据源时，才单独启用 Lark
+Connector：
 
 ```bash
 python3 scripts/connectors.py status my-workspace --provider lark --json
@@ -130,13 +125,14 @@ python3 scripts/connectors.py plan my-workspace --provider lark --json
 `lark-cli`。未启用时返回空计划，也不会请求飞书权限。详见
 [Lark Connector](references/lark-connector.md)。
 
-### 5. 打开本地 UI
+### 已初始化时单独打开 UI
 
 ```bash
 python3 scripts/ui.py
 ```
 
-然后访问 [http://127.0.0.1:8741/](http://127.0.0.1:8741/)。
+然后访问 [http://127.0.0.1:8741/](http://127.0.0.1:8741/)。新用户直接使用
+`quickstart.py` 即可。
 
 UI 当前用于两类操作：
 
@@ -144,6 +140,13 @@ UI 当前用于两类操作：
 2. 审阅、批准、拒绝和应用后台产生的候选记忆。
 
 浏览器不会直接改写正式记忆文件。所有变更都经过本地协议、单一 Writer、回读和校验。
+
+旧版本用户先预览迁移；确认无冲突后再显式复制，旧文件不会删除：
+
+```bash
+python3 scripts/home.py migration-plan --json
+python3 scripts/home.py migrate --json
+```
 
 ## 用户旅程
 

@@ -41,14 +41,14 @@ Personal Work 只链接 Workspace 证据或 owner capture，不复制外部原�
 1. 解析本 `SKILL.md` 的实际目录，确认 `scripts/`、`schemas/` 和
    `memory_workspace/` 随 Skill 一起存在。
 2. 找到当前环境已经可用的 Python 启动方式；不得为完成自检而擅自安装软件。
-3. 运行只读能力探针：
+3. 运行幂等的一键准备命令：
 
 ```bash
-<python> <skill-dir>/scripts/bootstrap.py --json
+<python> <skill-dir>/scripts/quickstart.py --json
 ```
 
 4. 按返回状态执行：
-   - `READY`：继续目标工作流，并在首次写入前运行对应的 `doctor`。
+   - `READY`：统一 Memory Home 已初始化，可以继续目标工作流。
    - `NEEDS_RUNTIME`：报告缺少的运行时；未经授权不得安装。
    - `NEEDS_PERSISTENT_PATH`：选择或请求明确的持久目录，再重新探测。
    - `NEEDS_PERMISSION`：只请求报告中的确切目录权限，再重新探测。
@@ -56,12 +56,12 @@ Personal Work 只链接 Workspace 证据或 owner capture，不复制外部原�
 5. 当前环境不能执行探针时，不得声称已经本地保存。只能保持只读，或使用用户已经
    配置且提供同等操作契约的 API/工具适配器。
 
-首次正式写入前检查并初始化统一根目录：
+`quickstart --json` 先执行只读能力探针，只有状态为 `READY` 时才初始化目录。它返回
+Memory Home、Personal Learning、Workspace 和 Capture 的实际路径，以及首次历史学习状态。
+如果用户希望打开本地审阅台，运行：
 
 ```bash
-python3 <skill-dir>/scripts/home.py doctor --json
-python3 <skill-dir>/scripts/home.py status --json
-python3 <skill-dir>/scripts/home.py init --json
+<python> <skill-dir>/scripts/quickstart.py
 ```
 
 旧版目录存在时，先运行 `migration-plan`。只有用户明确要求迁移后才运行 `migrate`；它
@@ -74,21 +74,21 @@ python3 <skill-dir>/scripts/home.py init --json
 
 ### 首次启用：自动学习近 30 天 Query
 
-能力探针返回 `READY` 后，当前 Agent 必须检查一次首次学习状态：
-
-```bash
-python3 <skill-dir>/scripts/capture.py onboarding status --json
-```
+一键准备返回 `READY` 后，读取收据中的 `history_learning.status`。需要复查时再运行
+`capture.py onboarding status --json`。
 
 - 已经是 `awaiting_review` 或 `completed`：不得重复扫描，继续展示或使用现有结果。
-- `history_access.available=true`：在当前任务关键回答完成后运行 `onboarding run`；只处理
-  适配器明确交付、当前 Agent 原本有权读取且位于最近 30 天内的用户 Query。
+- `ready`：运行 `onboarding run`；只处理适配器明确交付、当前 Agent 原本有权读取且位于
+  最近 30 天内的用户 Query。标准一键准备在来源有效时会自动完成这一步。
 - 当前 Agent 能通过自己的历史工具读取对话、但探针没有现成文件时：按
   `references/adaptive-policy.md` 的标准 JSONL 契约准备最小字段，再运行
   `onboarding run --file <path> --adapter <capability-name>`。不得因用户安装 Skill 就搜索
   其他账号、产品数据库、直接消息或未授权目录。
 - 当前环境不能读取历史时：停在 `needs_history_source`，允许用户以后导入文件；不得把
-  “看不到”说成“最近 30 天没有对话”。
+  “看不到”说成“最近 30 天没有对话”。这不会阻塞 Personal Memory、Workspace 或本地
+  Candidate 审阅。
+- 历史来源存在但损坏或不符合协议时：标记 `needs_attention` 并报告准确错误；不得把这项
+  可选能力的错误升级为基础 Memory Home 安装失败。
 
 首次学习会在 `~/.memory-home/personal/learning/` 生成两份待审产物：
 `query-habits.md` 是人可读的 Query 习惯草稿，`policies/policy_*.json` 是机器使用的

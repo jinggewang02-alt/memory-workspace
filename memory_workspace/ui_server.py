@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from . import capture, episodes, habits, onboarding, policy, writer
+from . import capture, episodes, habits, home, onboarding, policy, workspace, writer
 from .io import MemoryWorkspaceError
 
 
@@ -54,19 +54,122 @@ def _host_header_is_loopback(value: str | None) -> bool:
     return name in ALLOWED_BIND_HOSTS
 
 
-def _overview(root: Path | None) -> dict[str, Any]:
+def _learning_roots(
+    root: Path | None, learning_root: Path | None
+) -> tuple[Path | None, Path | None]:
+    if learning_root is None:
+        return root, root
+    return learning_root.parent, learning_root
+
+
+def _readiness(
+    *,
+    root: Path | None,
+    learning_root: Path | None,
+    memory_home: Path | None,
+    workspaces_root: Path | None,
+) -> dict[str, Any]:
+    home_check = (
+        home.check_home(root=memory_home)
+        if memory_home is not None
+        else (home.check_home() if root is None else None)
+    )
+    capture_check = capture.doctor(root=root)
+    workspace_check = (
+        workspace.doctor(root=workspaces_root)
+        if workspaces_root is not None or root is None
+        else None
+    )
+    workspace_items = (
+        workspace.list_workspaces(root=workspaces_root)
+        if workspaces_root is not None or root is None
+        else []
+    )
+    learning = _safe_onboarding_status(root=root, learning_root=learning_root)
+    home_ready = (
+        home_check["status"] == "OK"
+        if home_check is not None
+        else bool(capture_check["filesystem_writable"])
+    )
+    ready = (
+        home_ready
+        and bool(capture_check["filesystem_writable"])
+        and (
+            workspace_check is None
+            or bool(workspace_check["filesystem_writable"])
+        )
+    )
+    return {
+        "status": "ready" if ready else "needs_setup",
+        "ready_to_use": ready,
+        "memory": {
+            "status": "ready" if ready else "needs_setup",
+            "path": (
+                home_check["home_path"]
+                if home_check is not None
+                else capture_check["capture_root"]
+            ),
+        },
+        "history_learning": {
+            "status": learning["status"],
+            "optional": True,
+        },
+        "workspaces": {
+            "count": len(workspace_items),
+            "optional_until_first_project": True,
+        },
+    }
+
+
+def _safe_onboarding_status(
+    *, root: Path | None, learning_root: Path | None
+) -> dict[str, Any]:
+    habits_root, policy_root = _learning_roots(root, learning_root)
+    try:
+        return onboarding.get_status(
+            root=root,
+            habits_root=habits_root,
+            policy_root=policy_root,
+        )
+    except MemoryWorkspaceError as exc:
+        return {
+            "status": "needs_attention",
+            "run": None,
+            "habits": None,
+            "policy_active": False,
+            "can_confirm": False,
+            "history_source": None,
+            "error": str(exc),
+        }
+
+
+def _overview(
+    root: Path | None,
+    *,
+    learning_root: Path | None,
+    memory_home: Path | None,
+    workspaces_root: Path | None,
+) -> dict[str, Any]:
     candidates = capture.list_candidates(status="all", limit=500, root=root)
     counts = {name: 0 for name in ("proposed", "approved", "rejected", "applied")}
     for item in candidates:
         counts[item["status"]] += 1
     pending = episodes.list_episodes(status="pending", limit=500, root=root)
-    policies = policy.list_policies(root=root)
+    policies = policy.list_policies(
+        root=learning_root if learning_root is not None else root
+    )
     active_policy = next((item for item in policies if item["active"]), None)
     return {
         "counts": counts,
         "pending_episode_count": len(pending),
         "active_policy": active_policy,
         "capture": capture.doctor(root=root),
+        "readiness": _readiness(
+            root=root,
+            learning_root=learning_root,
+            memory_home=memory_home,
+            workspaces_root=workspaces_root,
+        ),
     }
 
 
@@ -130,10 +233,16 @@ def _optional_string(payload: dict[str, Any], key: str) -> str | None:
 def build_handler(
     *,
     root: Path | None,
+    learning_root: Path | None,
+    memory_home: Path | None,
     token: str,
     profile_path: Path | None,
     workspaces_root: Path | None,
 ) -> type[BaseHTTPRequestHandler]:
+    configured_habits_root, configured_policy_root = _learning_roots(
+        root, learning_root
+    )
+
     class ReviewInboxHandler(BaseHTTPRequestHandler):
         server_version = "MemoryWorkspaceUI/0.9"
 
@@ -199,21 +308,36 @@ def build_handler(
                     self._send_json({"ok": True, "token": token})
                     return
                 if target.path == "/api/overview":
-                    self._send_json({"ok": True, "overview": _overview(root)})
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "overview": _overview(
+                                root,
+                                learning_root=learning_root,
+                                memory_home=memory_home,
+                                workspaces_root=workspaces_root,
+                            ),
+                        }
+                    )
                     return
                 if target.path == "/api/onboarding":
                     self._send_json(
-                        {"ok": True, "onboarding": onboarding.get_status(root=root)}
+                        {
+                            "ok": True,
+                            "onboarding": _safe_onboarding_status(
+                                root=root, learning_root=learning_root
+                            ),
+                        }
                     )
                     return
                 if target.path == "/api/habits":
-                    report = habits.load_report(root=root)
+                    report = habits.load_report(root=configured_habits_root)
                     self._send_json(
                         {
                             "ok": True,
                             "report": report,
                             "markdown_path": (
-                                str(habits.report_markdown_path(root))
+                                str(habits.report_markdown_path(configured_habits_root))
                                 if report is not None
                                 else None
                             ),
@@ -249,7 +373,11 @@ def build_handler(
                 try:
                     payload = _read_json(self)
                     if target.path == "/api/onboarding/confirm":
-                        result = onboarding.confirm_first_learning(root=root)
+                        result = onboarding.confirm_first_learning(
+                            root=root,
+                            habits_root=configured_habits_root,
+                            policy_root=configured_policy_root,
+                        )
                     else:
                         history_file_value = _optional_string(payload, "history_file")
                         adapter = _optional_string(payload, "adapter")
@@ -258,6 +386,8 @@ def build_handler(
                             raise MemoryWorkspaceError("days 必须是整数。")
                         result = onboarding.run_first_learning(
                             root=root,
+                            habits_root=configured_habits_root,
+                            policy_root=configured_policy_root,
                             history_file=(
                                 Path(history_file_value)
                                 if history_file_value is not None
@@ -331,6 +461,8 @@ def create_server(
     host: str = "127.0.0.1",
     port: int = 8741,
     root: Path | None = None,
+    learning_root: Path | None = None,
+    memory_home: Path | None = None,
     token: str | None = None,
     profile_path: Path | None = None,
     workspaces_root: Path | None = None,
@@ -343,6 +475,8 @@ def create_server(
         (bind_host, port),
         build_handler(
             root=root,
+            learning_root=learning_root,
+            memory_home=memory_home,
             token=session_token,
             profile_path=profile_path,
             workspaces_root=workspaces_root,

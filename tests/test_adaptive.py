@@ -20,6 +20,7 @@ class AdaptiveCaptureCliTests(unittest.TestCase):
         self.capture_root = self.root / "capture"
         self.history_path = self.root / "history.jsonl"
         self.environment = os.environ.copy()
+        self.environment["MEMORY_HOME"] = str(self.root / "memory-home")
         self.environment["MWORK_CAPTURE_DIR"] = str(self.capture_root)
         self.environment["MWORK_WORKSPACES_DIR"] = str(self.root / "workspaces")
         self.environment["MWORK_ALLOW_TRANSIENT"] = "1"
