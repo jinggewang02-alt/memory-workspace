@@ -1,4 +1,4 @@
-"""Loopback-only HTTP API and static server for the local review inbox."""
+"""Loopback-only HTTP API and static server for the unified Memory Home UI."""
 
 from __future__ import annotations
 
@@ -12,7 +12,18 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from . import capture, episodes, habits, home, onboarding, policy, workspace, writer
+from . import (
+    capture,
+    episodes,
+    habits,
+    home,
+    home_view,
+    onboarding,
+    policy,
+    profile,
+    workspace,
+    writer,
+)
 from .io import MemoryWorkspaceError
 
 
@@ -173,6 +184,57 @@ def _overview(
     }
 
 
+def _candidate_counts(root: Path | None) -> dict[str, int]:
+    candidates = capture.list_candidates(status="all", limit=500, root=root)
+    counts = {name: 0 for name in ("proposed", "approved", "rejected", "applied")}
+    for item in candidates:
+        counts[item["status"]] += 1
+    return counts
+
+
+def _profile_target(memory_home: Path | None, profile_path: Path | None) -> Path:
+    if profile_path is not None:
+        return profile_path.resolve(strict=False)
+    base = (memory_home or home.home_path()).resolve(strict=False)
+    return base / "personal" / "profile" / "exact.json"
+
+
+def _required_string(payload: dict[str, Any], key: str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise MemoryWorkspaceError(f"{key} 必须是非空字符串。")
+    return value
+
+
+def _set_profile_single(path: Path, key: str, value: str) -> dict[str, Any]:
+    try:
+        capture._reject_secrets(key, value)
+    except MemoryWorkspaceError as exc:
+        raise MemoryWorkspaceError(
+            "Personal Memory 不保存密码、令牌、Cookie 或私钥；本次没有写入。"
+        ) from exc
+    existing = profile.load_store(path)
+    if existing is not None:
+        current = existing["items"].get(key)
+        if current is not None and current.get("type") != "single":
+            raise MemoryWorkspaceError("结构化条目暂不支持在 UI 中编辑，请让 Agent 按条目协议处理。")
+    doctor = profile.doctor(path)
+    if not doctor["filesystem_writable"]:
+        raise MemoryWorkspaceError("Personal Memory 目录不可写；没有保存。")
+    profile.set_single(path, key, value)
+    verified = profile.get_item(path, key)
+    if verified["value"] != value:
+        raise MemoryWorkspaceError("Personal Memory 写入后的逐字校验失败。")
+    return {
+        "status": "applied",
+        "item": verified,
+        "verification": {
+            "status": "passed",
+            "checks": ["exact profile write completed", "exact value read back"],
+        },
+    }
+
+
 def _candidate_detail(candidate_id: str, root: Path | None) -> dict[str, Any]:
     bundle = copy.deepcopy(capture.show_candidate(candidate_id, root=root))
     candidate = bundle["candidate"]
@@ -244,7 +306,7 @@ def build_handler(
     )
 
     class ReviewInboxHandler(BaseHTTPRequestHandler):
-        server_version = "MemoryWorkspaceUI/0.9"
+        server_version = "MemoryWorkspaceUI/1.0"
 
         def end_headers(self) -> None:
             self.send_header("Cache-Control", "no-store")
@@ -304,6 +366,16 @@ def build_handler(
                     filename, content_type = STATIC_FILES[target.path]
                     self._send_bytes((UI_ROOT / filename).read_bytes(), content_type=content_type)
                     return
+                if target.path == "/api/health":
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "service": "memory-workspace-home-ui",
+                            "status": "ready",
+                            "loopback_only": True,
+                        }
+                    )
+                    return
                 if target.path == "/api/session":
                     self._send_json({"ok": True, "token": token})
                     return
@@ -316,6 +388,19 @@ def build_handler(
                                 learning_root=learning_root,
                                 memory_home=memory_home,
                                 workspaces_root=workspaces_root,
+                            ),
+                        }
+                    )
+                    return
+                if target.path == "/api/home":
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "memory_home": home_view.build_home_view(
+                                memory_home=memory_home,
+                                profile_path=profile_path,
+                                workspaces_root=workspaces_root,
+                                review_counts=_candidate_counts(root),
                             ),
                         }
                     )
@@ -369,6 +454,25 @@ def build_handler(
             if self._reject_bad_host() or not self._mutation_authorized():
                 return
             target = urlsplit(self.path)
+            if target.path in {
+                "/api/personal/profile/reveal",
+                "/api/personal/profile/set",
+            }:
+                try:
+                    payload = _read_json(self)
+                    key = _required_string(payload, "key").strip()
+                    path = _profile_target(memory_home, profile_path)
+                    if target.path.endswith("/reveal"):
+                        result = profile.get_item(path, key)
+                    else:
+                        value = _required_string(payload, "value")
+                        result = _set_profile_single(path, key, value)
+                    self._send_json({"ok": True, "result": result})
+                except MemoryWorkspaceError as exc:
+                    self._send_json(
+                        {"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST
+                    )
+                return
             if target.path in {"/api/onboarding/run", "/api/onboarding/confirm"}:
                 try:
                     payload = _read_json(self)

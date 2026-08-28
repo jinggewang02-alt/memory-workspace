@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .io import MemoryWorkspaceError, atomic_write_json
+from .memory_refs import workspace_reference
 from .operations import validate_operation_document
 from .schema import load_json_object, validate
 from .workspace import (
@@ -233,6 +234,7 @@ def query_index(
     if rebuild:
         rebuild_index(slug, root=root)
     _, document = load_index(slug, root=root)
+    workspace_name = str(document["workspace"]["name"])
     needle = keyword.casefold()
     results: list[dict[str, Any]] = []
 
@@ -277,6 +279,21 @@ def query_index(
 
     results.sort(key=lambda item: (-item["score"], item["type"], item["path"]))
     limited = results[:limit]
+    references: list[dict[str, Any]] = []
+    for item in limited:
+        # Operations are System audit state, not canonical memory citations.
+        if item["type"] == "operation":
+            continue
+        reference = workspace_reference(
+            slug,
+            workspace_name,
+            kind=item["type"],
+            identifier=item["id"],
+            title=item["title"],
+            path=item["path"],
+        )
+        item["memory_reference"] = reference
+        references.append(reference)
     return {
         "workspace_id": slug,
         "keyword": keyword,
@@ -284,4 +301,5 @@ def query_index(
         "count": len(limited),
         "total_matches": len(results),
         "results": limited,
+        "memory_references": references,
     }

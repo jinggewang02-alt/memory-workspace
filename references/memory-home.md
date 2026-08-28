@@ -1,7 +1,7 @@
 # Memory Home
 
-Status: Implemented layout and migration foundation v0.1
-Updated: 2026-08-27
+Status: Implemented layout, migration, and unified local UI read model v0.2
+Updated: 2026-08-28
 
 Memory Home is the single durable root for a user's local memory system. Its
 default path is `~/.memory-home/`. Personal Memory and Workspaces are sibling
@@ -52,6 +52,17 @@ python3 scripts/home.py init --json
 Markdown pages without replacing existing files. `MEMORY_HOME` may override the
 root; component-specific `PMEM_*` and `MWORK_*` variables remain compatibility
 overrides but can produce a split layout.
+
+## Local UI projection
+
+The local UI treats Memory Home—not a Workspace—as its top-level object.
+`GET /api/home` projects the sibling `personal/`, `workspaces/`, and review-state
+areas into the validated `memory-home-view` protocol. Exact Profile values are
+masked from this aggregate response; Personal Work and preferences are read-only,
+and Workspace cards omit absolute paths. An owner can reveal or save one Exact
+Profile single value through a token-protected endpoint with immediate readback.
+Structured entries and canonical Markdown continue through Agent/Candidate writer
+workflows rather than direct browser editing.
 
 ## Legacy migration
 

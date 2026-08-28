@@ -15,6 +15,7 @@ from .io import (
     nearest_existing_parent,
     transient_reason,
 )
+from .memory_refs import personal_profile_reference
 
 
 SCHEMA_VERSION = 1
@@ -91,14 +92,25 @@ def get_item(
     if document is None or key not in document["items"]:
         raise MemoryWorkspaceError(f"未找到 [{key}]")
     item = document["items"][key]
+    reference = personal_profile_reference(key, index=index)
     if item.get("type") == "single":
-        return {"key": key, "type": "single", "value": item.get("value", "")}
+        return {
+            "key": key,
+            "type": "single",
+            "value": item.get("value", ""),
+            "memory_reference": reference,
+        }
 
     entries = item.get("value")
     if not isinstance(entries, list):
         raise MemoryWorkspaceError(f"[{key}] 的结构化条目已损坏。")
     if index is None:
-        return {"key": key, "type": "entries", "value": entries}
+        return {
+            "key": key,
+            "type": "entries",
+            "value": entries,
+            "memory_reference": reference,
+        }
     if index < 1 or index > len(entries):
         raise MemoryWorkspaceError(f"[{key}] 只有 {len(entries)} 条，index 越界。")
     entry = entries[index - 1]
@@ -111,8 +123,15 @@ def get_item(
             "index": index,
             "field": field,
             "value": entry[field],
+            "memory_reference": reference,
         }
-    return {"key": key, "type": "entries", "index": index, "value": entry}
+    return {
+        "key": key,
+        "type": "entries",
+        "index": index,
+        "value": entry,
+        "memory_reference": reference,
+    }
 
 
 def search_items(path: Path, keyword: str) -> list[dict[str, Any]]:

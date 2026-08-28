@@ -4,27 +4,33 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
-    <title>Memory Workspace</title>
+    <title>Memory Home</title>
     <link rel="stylesheet" href="/app.css">
     <script src="/app.js" defer></script>
   </head>
   <body>
     <div class="page-shell">
       <header class="site-header">
-        <a class="brand" href="/" aria-label="Memory Workspace 首页">
+        <a class="brand" href="#home" aria-label="Memory Home 首页">
           <span class="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
           </span>
-          <span>Memory Workspace</span>
+          <span>Memory Home</span>
         </a>
+        <nav class="site-nav" aria-label="Memory Home 导航">
+          <a href="#home">总览</a>
+          <a href="#personal-memory">个人记忆</a>
+          <a href="#workspace-memory">项目空间</a>
+          <a href="#review-memory">待审</a>
+        </nav>
         <div class="local-pill"><span class="status-dot"></span>仅在本机运行</div>
       </header>
 
-      <main>
+      <main id="home">
         <section class="hero" aria-labelledby="page-title">
-          <p class="eyebrow">Memory Workspace</p>
-          <h1 id="page-title">重要的留下来，其余的随它去。</h1>
-          <p class="hero-copy">Agent 先提出候选，你决定什么值得成为长期记忆。</p>
+          <p class="eyebrow">Memory Home</p>
+          <h1 id="page-title">你的记忆，放在一个地方。</h1>
+          <p class="hero-copy">个人资料、工作脉络和项目知识并列保存；Agent 负责整理，你保留最终决定权。</p>
         </section>
 
         <section id="setup-panel" class="setup-panel" aria-labelledby="setup-title" aria-live="polite">
@@ -84,19 +90,19 @@
 
         <section class="summary-grid" aria-label="记忆状态概览">
           <article class="summary-card summary-primary">
+            <span class="summary-label">Personal Memory</span>
+            <strong id="stat-personal">…</strong>
+            <span class="summary-note">条精确个人资料</span>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">Workspaces</span>
+            <strong id="stat-workspaces">…</strong>
+            <span class="summary-note">个项目知识空间</span>
+          </article>
+          <article class="summary-card">
             <span class="summary-label">等待你审阅</span>
             <strong id="stat-proposed">…</strong>
             <span class="summary-note">条候选记忆</span>
-          </article>
-          <article class="summary-card">
-            <span class="summary-label">已经批准</span>
-            <strong id="stat-approved">…</strong>
-            <span class="summary-note">等待正式写入</span>
-          </article>
-          <article class="summary-card">
-            <span class="summary-label">已经应用</span>
-            <strong id="stat-applied">…</strong>
-            <span class="summary-note">条正式记忆</span>
           </article>
           <article class="summary-card policy-card">
             <span class="summary-label">当前学习策略</span>
@@ -105,7 +111,55 @@
           </article>
         </section>
 
-        <section class="inbox-section" aria-labelledby="inbox-title">
+        <section id="personal-memory" class="memory-section" aria-labelledby="personal-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">PERSONAL MEMORY</p>
+              <h2 id="personal-title">关于你的长期记忆</h2>
+            </div>
+            <span id="personal-meta" class="quiet-meta">正在读取…</span>
+          </div>
+
+          <div class="home-scope-grid">
+            <article class="home-panel profile-panel">
+              <div class="home-panel-heading">
+                <div>
+                  <h3>精确个人资料</h3>
+                  <p>邮箱、学号、地址和结构化经历。值默认隐藏。</p>
+                </div>
+                <button id="add-profile-item" class="button button-quiet" type="button">添加资料</button>
+              </div>
+              <div id="profile-list" class="profile-list" aria-live="polite"></div>
+              <div id="profile-detail" class="profile-detail" aria-live="polite">
+                <p>选择一个字段查看，或添加新的精确资料。</p>
+              </div>
+            </article>
+
+            <article class="home-panel">
+              <div class="home-panel-heading">
+                <div>
+                  <h3>工作脉络与偏好</h3>
+                  <p>跨项目总览、项目组合，以及确认或待确认的个人偏好。</p>
+                </div>
+              </div>
+              <div id="personal-document-list" class="personal-document-list" aria-live="polite"></div>
+              <div id="personal-collection-meta" class="collection-meta"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="workspace-memory" class="memory-section" aria-labelledby="workspace-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">WORKSPACES</p>
+              <h2 id="workspace-title">以项目为中心的知识</h2>
+            </div>
+            <span id="workspace-meta" class="quiet-meta">正在读取…</span>
+          </div>
+          <div id="workspace-list" class="workspace-list" aria-live="polite"></div>
+        </section>
+
+        <section id="review-memory" class="inbox-section" aria-labelledby="inbox-title">
           <div class="section-heading">
             <div>
               <p class="eyebrow">MEMORY REVIEW</p>
@@ -137,8 +191,8 @@
       </main>
 
       <footer>
-        <span>Memory Workspace</span>
-        <span>本地优先 · 审阅后写入</span>
+        <span>Memory Home</span>
+        <span>个人与项目并列 · 本地优先 · 审阅后写入</span>
       </footer>
     </div>
 

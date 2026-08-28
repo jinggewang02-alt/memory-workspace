@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "home": {
+    "id": "default",
+    "path": "/Users/example/.memory-home",
+    "status": "ready"
+  },
+  "summary": {
+    "personal_profile_items": 2,
+    "personal_documents": 1,
+    "workspaces": 1,
+    "review_candidates": 3
+  },
+  "personal": {
+    "profile": {
+      "count": 2,
+      "updated_at": 1787890000,
+      "items": [
+        {
+          "key": "联系邮箱",
+          "type": "single",
+          "masked": true,
+          "memory_reference": {
+            "schema_version": 1,
+            "uri": "memory://personal/profile/%E8%81%94%E7%B3%BB%E9%82%AE%E7%AE%B1",
+            "scope": "personal",
+            "kind": "exact_profile",
+            "label": "Personal · 联系邮箱",
+            "path": "personal/profile/exact.json",
+            "item_key": "联系邮箱",
+            "item_index": null
+          }
+        },
+        {
+          "key": "经历",
+          "type": "entries",
+          "count": 2,
+          "masked": true,
+          "memory_reference": {
+            "schema_version": 1,
+            "uri": "memory://personal/profile/%E7%BB%8F%E5%8E%86",
+            "scope": "personal",
+            "kind": "exact_profile",
+            "label": "Personal · 经历",
+            "path": "personal/profile/exact.json",
+            "item_key": "经历",
+            "item_index": null
+          }
+        }
+      ],
+      "values_masked": true,
+      "supports_single_value_edit": true,
+      "supports_structured_entry_edit": false
+    },
+    "documents": [
+      {
+        "id": "work_overview",
+        "label": "工作总览",
+        "kind": "work",
+        "path": "personal/work/overview.md",
+        "exists": true,
+        "empty": false,
+        "content": "# Work overview\n\nCurrent context.\n",
+        "truncated": false,
+        "editable_in_ui": false
+      }
+    ],
+    "collections": {
+      "people": 2,
+      "themes": 1,
+      "timeline": 4,
+      "captures": 3
+    }
+  },
+  "workspaces": [
+    {
+      "workspace_id": "memory-workspace",
+      "name": "Memory Workspace",
+      "created_at": "2026-08-28T08:00:00Z",
+      "status": "ready",
+      "error": null,
+      "counts": {
+        "sources": 4,
+        "operations": 7
+      }
+    }
+  ],
+  "review": {
+    "counts": {
+      "proposed": 3,
+      "approved": 1,
+      "rejected": 2,
+      "applied": 5
+    }
+  }
+}

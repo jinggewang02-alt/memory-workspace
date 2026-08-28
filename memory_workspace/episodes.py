@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections import Counter
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .capture import parse_datetime
@@ -230,6 +230,28 @@ def plan_pending(
         episode = show_episode(summary["episode_id"], idle_minutes=idle_minutes, root=root)
         result.append(summary | {"policy": evaluate_episode(episode, active)})
     return result
+
+
+def plan_nightly(
+    *, idle_minutes: int = 30, limit: int = 20, root=None
+) -> dict[str, Any]:
+    """Return a portable nightly batch; semantic work still belongs to a Worker."""
+
+    planned = plan_pending(idle_minutes=idle_minutes, limit=limit, root=root)
+    return {
+        "schema_version": 1,
+        "job": "nightly-memory-processing",
+        "status": "ready" if planned else "nothing_to_process",
+        "generated_at": datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z"),
+        "preferred_local_time": "22:00",
+        "fallback": "next_startup_or_idle",
+        "current_query_work": "local_enqueue_only",
+        "canonical_write_policy": "candidate_only",
+        "pending_episode_count": len(planned),
+        "episodes": planned,
+    }
 
 
 def resolve_episode(

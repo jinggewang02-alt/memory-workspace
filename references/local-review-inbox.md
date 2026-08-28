@@ -1,10 +1,10 @@
-# Local Review Inbox
+# Local Memory Home UI
 
-Status: MVP v0.3
+Status: MVP v0.4
 
-The Review Inbox is a local, derived view over asynchronous capture candidates.
-It is not a second memory store and it does not write directly to Workspace
-Markdown or Exact Profile JSON.
+The UI is a local, derived view over the whole Memory Home. Personal Memory,
+Workspaces, first-use learning, and asynchronous capture candidates are sibling
+sections in one interface. It is not a second memory store.
 
 ## Start
 
@@ -18,9 +18,50 @@ The command opens `http://127.0.0.1:8741/`. Use `--no-open` when the current
 environment cannot open a browser, and `--port <port>` if the default port is
 occupied. The host is intentionally limited to `localhost` or `127.0.0.1`.
 
-## UI contract
+Loopback is reachable only from a browser on the same device while the server
+process remains alive. A remote Agent MUST NOT present its loopback URL to the
+user. After launch, verify `GET /api/health`; only a response containing
+`status=ready` proves that the link is currently live. `quickstart --json` never
+starts this process and returns `ui.status=not_started` with a null URL.
 
-The UI exposes two connected workflows. First-use learning:
+## Home read-model contract
+
+`GET /api/home` returns a schema-validated `memory-home-view` document:
+
+- Home identity and readiness;
+- masked Exact Profile field metadata, never the stored values;
+- read-only Personal Work and preference Markdown, capped at 32,000 characters
+  per document;
+- counts for people, themes, timeline entries, and captures;
+- Workspace identity, health, source count, and operation count without absolute
+  Workspace paths;
+- current candidate-review counts.
+
+The protocol is defined by `schemas/memory-home-view.schema.json`. An exact
+Profile value is fetched only after an explicit owner action through
+`POST /api/personal/profile/reveal`, which requires the in-memory session token.
+
+## UI workflows
+
+The UI exposes four connected workflows.
+
+Home and Personal Memory:
+
+1. show Personal Memory and Workspaces as sibling scopes under one Home;
+2. list Exact Profile keys with values masked;
+3. reveal a selected field only after an explicit token-protected action;
+4. allow explicit create/update of a single-value Profile field, then read the
+   exact value back before reporting success;
+5. keep structured Profile entries and Personal Work/preference Markdown
+   read-only in the current UI.
+
+Workspace overview:
+
+1. list the Workspaces already registered under this Home;
+2. show each Workspace's health, source count, and operation count;
+3. keep project file editing in the existing Agent/Operation workflow.
+
+First-use learning:
 
 1. read onboarding status without mutating history;
 2. when a host has configured an Agent-visible history handoff, start one
@@ -30,7 +71,7 @@ The UI exposes two connected workflows. First-use learning:
 5. only after an explicit owner action, confirm the Markdown report and
    activate its matching Policy draft.
 
-Candidate review then continues through the existing workflow:
+Candidate review continues through the existing workflow:
 
 1. list proposed, approved, rejected, or applied Candidates;
 2. inspect the Candidate, its resolution reason, Policy metadata, and redacted
@@ -39,9 +80,9 @@ Candidate review then continues through the existing workflow:
 4. after a separate explicit action, call the existing single Writer and show
    its verified application receipt.
 
-Sensitive Candidate content is omitted from the normal detail response. The
-owner must explicitly reveal it through a session-token-protected local
-request.
+Sensitive Candidate content and Exact Profile values are omitted from normal
+listing responses. The owner must explicitly reveal either through a
+session-token-protected local request.
 
 ## Security boundary
 
@@ -51,11 +92,15 @@ request.
   session token.
 - Responses disable caching, framing, cross-origin scripts, and MIME sniffing.
 - The API accepts JSON bodies up to 64 KiB and never enables CORS.
+- Exact Profile single-value create/update calls the existing Profile writer,
+  rejects common secret shapes, and immediately performs an exact readback.
+  Existing structured entries cannot be overwritten through this endpoint.
 - Candidate approval and rejection call `capture.decide_candidate`. Apply calls
   `writer.apply_candidate`, which uses a reviewed Workspace Operation or exact
   Profile write/readback and then records a schema v2 application receipt.
-- Browser code does not bypass validation or directly edit queue or canonical
-  files. A failed Writer leaves the Candidate `approved` for safe retry.
+- Browser code cannot directly edit Personal Markdown, Workspace files, queue
+  files, or structured Profile entries. A failed Writer leaves the Candidate
+  `approved` for safe retry.
 - The browser never discovers account history itself. `/api/onboarding/run`
   delegates to the same bounded importer and only reads an explicit path or the
   host-configured `MWORK_HISTORY_FILE` handoff. Rows outside 30 days are not

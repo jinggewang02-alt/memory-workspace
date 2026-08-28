@@ -10,6 +10,8 @@ const state = {
   onboarding: null,
   onboardingRunning: false,
   overview: null,
+  memoryHome: null,
+  profileKey: null,
 };
 
 const labels = {
@@ -123,8 +125,6 @@ async function loadOverview() {
   state.overview = overview;
   renderSetup(overview.readiness);
   $("#stat-proposed").textContent = overview.counts.proposed;
-  $("#stat-approved").textContent = overview.counts.approved;
-  $("#stat-applied").textContent = overview.counts.applied;
   $("#pending-episodes").textContent = overview.pending_episode_count
     ? overview.pending_episode_count + " 个对话片段等待后台判断"
     : "当前没有待处理的对话片段";
@@ -136,6 +136,240 @@ async function loadOverview() {
     $("#policy-name").textContent = "未启用";
     $("#policy-note").textContent = "先由你决定，再慢慢学习";
   }
+}
+
+function markdownBody(value) {
+  if (!value) return "";
+  const lines = value.split("\n");
+  let start = 0;
+  if (lines[0]?.trim() === "---") {
+    const end = lines.indexOf("---", 1);
+    start = end >= 0 ? end + 1 : 0;
+  }
+  while (start < lines.length && !lines[start].trim()) start += 1;
+  if (lines[start]?.startsWith("# ")) start += 1;
+  return lines.slice(start).join("\n").trim();
+}
+
+function renderProfileDetailEmpty(message = "选择一个字段查看，或添加新的精确资料。") {
+  const detail = $("#profile-detail");
+  detail.replaceChildren(element("p", "", message));
+}
+
+function renderProfileItems(profileData) {
+  const list = $("#profile-list");
+  list.replaceChildren();
+  if (!profileData.items.length) {
+    list.append(element("div", "compact-empty", "还没有精确个人资料。"));
+    renderProfileDetailEmpty();
+    return;
+  }
+  profileData.items.forEach((item) => {
+    const button = element("button", "profile-item");
+    button.type = "button";
+    button.classList.toggle("is-selected", item.key === state.profileKey);
+    const count = item.type === "entries" ? " · " + item.count + " 条" : "";
+    button.append(
+      element("span", "profile-key", item.key),
+      element("span", "profile-kind", item.type === "single" ? "单值 · 已隐藏" : "结构化" + count),
+    );
+    button.addEventListener("click", () => revealProfileItem(item.key));
+    list.append(button);
+  });
+}
+
+function renderProfileValue(result) {
+  const detail = $("#profile-detail");
+  detail.replaceChildren();
+  const heading = element("div", "profile-detail-heading");
+  heading.append(
+    element("span", "profile-detail-label", "已从本机 Memory Home 读取"),
+    element("strong", "", result.key),
+  );
+  detail.append(heading);
+
+  if (result.type === "entries") {
+    const value = element("pre", "profile-value", JSON.stringify(result.value, null, 2));
+    detail.append(
+      value,
+      element("p", "profile-help", "结构化经历暂时只读；请让 Agent 按条目协议修改，避免破坏字段结构。"),
+    );
+    return;
+  }
+
+  const form = element("form", "profile-edit-form");
+  const input = document.createElement("input");
+  input.name = "value";
+  input.value = result.value;
+  input.required = true;
+  input.setAttribute("aria-label", result.key + "的值");
+  const save = element("button", "button button-primary", "保存修改");
+  save.type = "submit";
+  form.append(input, save);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    save.disabled = true;
+    save.textContent = "正在写入并校验…";
+    try {
+      const payload = await api("/api/personal/profile/set", {
+        method: "POST",
+        body: { key: result.key, value: input.value },
+      });
+      showToast("个人资料已写入并逐字校验。");
+      await loadMemoryHome(result.key);
+      renderProfileValue(payload.result.item);
+    } catch (error) {
+      save.disabled = false;
+      save.textContent = "保存修改";
+      showToast(error.message, true);
+    }
+  });
+  detail.append(
+    form,
+    element("p", "profile-help", "这里只编辑单值资料；保存动作使用正式 Profile Writer 并立即读回。"),
+  );
+}
+
+async function revealProfileItem(key) {
+  state.profileKey = key;
+  renderProfileItems(state.memoryHome.personal.profile);
+  renderProfileDetailEmpty("正在从本机读取…");
+  try {
+    const payload = await api("/api/personal/profile/reveal", {
+      method: "POST",
+      body: { key },
+    });
+    renderProfileValue(payload.result);
+  } catch (error) {
+    showToast(error.message, true);
+    renderProfileDetailEmpty("无法读取这个字段。");
+  }
+}
+
+function showAddProfileForm() {
+  state.profileKey = null;
+  if (state.memoryHome) renderProfileItems(state.memoryHome.personal.profile);
+  const detail = $("#profile-detail");
+  detail.replaceChildren();
+  const form = element("form", "profile-add-form");
+  form.append(element("h4", "", "添加精确个人资料"));
+  const key = document.createElement("input");
+  key.placeholder = "字段名，例如：学校邮箱";
+  key.required = true;
+  key.setAttribute("aria-label", "字段名");
+  const value = document.createElement("input");
+  value.placeholder = "保持原文，不会自动改写";
+  value.required = true;
+  value.setAttribute("aria-label", "字段值");
+  const actions = element("div", "form-actions");
+  const cancel = element("button", "button button-quiet", "取消");
+  cancel.type = "button";
+  cancel.addEventListener("click", () => renderProfileDetailEmpty());
+  const save = element("button", "button button-primary", "保存并校验");
+  save.type = "submit";
+  actions.append(cancel, save);
+  form.append(key, value, actions);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    save.disabled = true;
+    try {
+      const payload = await api("/api/personal/profile/set", {
+        method: "POST",
+        body: { key: key.value.trim(), value: value.value },
+      });
+      state.profileKey = payload.result.item.key;
+      showToast("个人资料已保存并逐字校验。");
+      await loadMemoryHome(state.profileKey);
+      renderProfileValue(payload.result.item);
+    } catch (error) {
+      save.disabled = false;
+      showToast(error.message, true);
+    }
+  });
+  detail.append(form);
+  key.focus();
+}
+
+function renderPersonalDocuments(personal) {
+  const list = $("#personal-document-list");
+  list.replaceChildren();
+  personal.documents.forEach((item) => {
+    const card = document.createElement("details");
+    card.className = "personal-document";
+    const summary = document.createElement("summary");
+    summary.append(
+      element("span", "", item.label),
+      element("small", "", item.empty ? "尚未沉淀" : "已有内容"),
+    );
+    const content = item.empty
+      ? "还没有形成这部分长期记忆。之后可由 Agent 基于已确认内容和 Workspace 证据维护。"
+      : markdownBody(item.content);
+    card.append(
+      summary,
+      element("pre", "personal-document-copy", content),
+      element("p", "profile-help", "当前 UI 只读展示这类 Markdown；正式修改仍通过 Agent 候选与 Writer。"),
+    );
+    list.append(card);
+  });
+
+  const collections = personal.collections;
+  $("#personal-collection-meta").replaceChildren(
+    element("span", "", "协作者 " + collections.people),
+    element("span", "", "主题 " + collections.themes),
+    element("span", "", "时间线 " + collections.timeline),
+    element("span", "", "个人记录 " + collections.captures),
+  );
+}
+
+function renderWorkspaces(items) {
+  const list = $("#workspace-list");
+  list.replaceChildren();
+  $("#workspace-meta").textContent = items.length ? items.length + " 个 Workspace" : "尚未创建 Workspace";
+  if (!items.length) {
+    const empty = element("div", "workspace-empty");
+    empty.append(
+      element("h3", "", "项目出现时再创建"),
+      element("p", "", "Workspace 是 Memory Home 的项目知识分区，不是整个记忆系统。"),
+    );
+    list.append(empty);
+    return;
+  }
+  items.forEach((item) => {
+    const card = element("article", "workspace-card");
+    card.append(
+      element("span", "workspace-id", item.workspace_id),
+      element("h3", "", item.name),
+      element(
+        "p",
+        "",
+        item.counts.sources + " 个来源 · " + item.counts.operations + " 次审阅操作",
+      ),
+      element("span", "workspace-status", item.status === "ready" ? "结构正常" : "需要检查"),
+    );
+    list.append(card);
+  });
+}
+
+function renderMemoryHome(data) {
+  state.memoryHome = data;
+  $("#stat-personal").textContent = data.summary.personal_profile_items;
+  $("#stat-workspaces").textContent = data.summary.workspaces;
+  $("#personal-meta").textContent =
+    data.personal.profile.count + " 条精确资料 · " + data.summary.personal_documents + " 份已沉淀文档";
+  renderProfileItems(data.personal.profile);
+  renderPersonalDocuments(data.personal);
+  renderWorkspaces(data.workspaces);
+  if (!state.profileKey) renderProfileDetailEmpty();
+}
+
+async function loadMemoryHome(preferredKey = null) {
+  const payload = await api("/api/home");
+  state.profileKey = preferredKey;
+  renderMemoryHome(payload.memory_home);
+}
+
+function bindMemoryHome() {
+  $("#add-profile-item").addEventListener("click", showAddProfileForm);
 }
 
 function updateSetupItem(selector, value, copy, status) {
@@ -573,7 +807,7 @@ async function applyCandidate(candidate, button) {
     });
     showToast("正式写入与校验均已完成。");
     activateStatus("applied");
-    await Promise.all([loadOverview(), loadCandidates(candidate.candidate_id)]);
+    await Promise.all([loadOverview(), loadMemoryHome(), loadCandidates(candidate.candidate_id)]);
   } catch (error) {
     button.disabled = false;
     button.textContent = "写入正式记忆";
@@ -753,10 +987,11 @@ function bindTabs() {
 async function init() {
   bindTabs();
   bindOnboarding();
+  bindMemoryHome();
   try {
     const session = await api("/api/session");
     state.token = session.token;
-    await Promise.all([loadOverview(), loadCandidates(), loadOnboarding()]);
+    await Promise.all([loadOverview(), loadMemoryHome(), loadCandidates(), loadOnboarding()]);
   } catch (error) {
     showToast(error.message, true);
     renderSetupError();

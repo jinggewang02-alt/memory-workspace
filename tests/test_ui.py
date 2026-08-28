@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from memory_workspace import capture, home
+from memory_workspace import capture, home, profile, workspace
 from memory_workspace.io import MemoryWorkspaceError
 from memory_workspace.ui_server import create_server
 
@@ -28,6 +28,7 @@ class LocalReviewInboxTests(unittest.TestCase):
             key: os.environ.get(key)
             for key in (
                 "MEMORY_HOME",
+                "PMEM_ALLOW_TRANSIENT",
                 "MWORK_ALLOW_TRANSIENT",
                 "MEMORY_HOME_ALLOW_TRANSIENT",
                 "MWORK_HISTORY_FILE",
@@ -35,6 +36,7 @@ class LocalReviewInboxTests(unittest.TestCase):
             )
         }
         os.environ["MEMORY_HOME"] = str(self.memory_home)
+        os.environ["PMEM_ALLOW_TRANSIENT"] = "1"
         os.environ["MWORK_ALLOW_TRANSIENT"] = "1"
         os.environ["MEMORY_HOME_ALLOW_TRANSIENT"] = "1"
         os.environ.pop("MWORK_HISTORY_FILE", None)
@@ -142,7 +144,9 @@ class LocalReviewInboxTests(unittest.TestCase):
         with urlopen(self.base_url + "/", timeout=3) as response:
             html = response.read().decode()
             headers = dict(response.headers.items())
-        self.assertIn("重要的留下来", html)
+        self.assertIn("你的记忆，放在一个地方", html)
+        self.assertIn("关于你的长期记忆", html)
+        self.assertIn("以项目为中心的知识", html)
         self.assertIn("先理解你的提问方式", html)
         self.assertEqual(headers["Cache-Control"], "no-store")
         self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
@@ -158,6 +162,119 @@ class LocalReviewInboxTests(unittest.TestCase):
         self.assertTrue(overview["readiness"]["ready_to_use"])
         self.assertTrue(overview["readiness"]["history_learning"]["optional"])
         self.assertEqual(overview["readiness"]["workspaces"]["count"], 0)
+
+        status, payload, _ = self.get("/api/home")
+        self.assertEqual(status, 200)
+        memory_home = payload["memory_home"]
+        self.assertEqual(memory_home["schema_version"], 1)
+        self.assertEqual(memory_home["home"]["status"], "ready")
+        self.assertEqual(memory_home["personal"]["profile"]["count"], 0)
+        self.assertTrue(memory_home["personal"]["profile"]["values_masked"])
+        self.assertEqual(memory_home["workspaces"], [])
+
+    def test_health_endpoint_only_claims_ready_after_server_is_listening(self) -> None:
+        status, payload, headers = self.get("/api/health")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["service"], "memory-workspace-home-ui")
+        self.assertTrue(payload["loopback_only"])
+        self.assertEqual(headers["Cache-Control"], "no-store")
+
+    def test_home_view_combines_personal_and_workspace_memory_without_profile_values(self) -> None:
+        profile.set_single(self.profile_path, "联系邮箱", "test@example.com")
+        profile.add_entry(
+            self.profile_path,
+            "经历",
+            {"机构": "Example Org", "角色": "Product"},
+        )
+        overview_path = self.memory_home / "personal" / "work" / "overview.md"
+        overview_path.write_text(
+            "# Work overview\n\n当前负责 Memory Home 的产品设计。\n",
+            encoding="utf-8",
+        )
+        workspace.init_workspace(
+            "memory-workspace",
+            name="Memory Workspace",
+            root=self.workspaces_root,
+        )
+
+        _, payload, _ = self.get("/api/home")
+        memory_home = payload["memory_home"]
+        serialized = json.dumps(memory_home, ensure_ascii=False)
+
+        self.assertNotIn("test@example.com", serialized)
+        self.assertNotIn("Example Org", serialized)
+        self.assertEqual(memory_home["summary"]["personal_profile_items"], 2)
+        self.assertEqual(memory_home["summary"]["personal_documents"], 1)
+        self.assertEqual(memory_home["summary"]["workspaces"], 1)
+        self.assertEqual(
+            [item["key"] for item in memory_home["personal"]["profile"]["items"]],
+            ["联系邮箱", "经历"],
+        )
+        self.assertIn(
+            "当前负责 Memory Home",
+            memory_home["personal"]["documents"][0]["content"],
+        )
+        self.assertEqual(
+            memory_home["workspaces"][0]["workspace_id"],
+            "memory-workspace",
+        )
+        self.assertNotIn("workspace_path", memory_home["workspaces"][0])
+
+    def test_profile_reveal_and_single_update_require_token_and_read_back(self) -> None:
+        profile.set_single(self.profile_path, "联系邮箱", "old@example.com")
+
+        with self.assertRaises(HTTPError) as denied:
+            self.post("/api/personal/profile/reveal", {"key": "联系邮箱"})
+        self.assertEqual(denied.exception.code, 403)
+
+        status, revealed = self.post(
+            "/api/personal/profile/reveal",
+            {"key": "联系邮箱"},
+            token="synthetic-test-token",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(revealed["result"]["value"], "old@example.com")
+        self.assertEqual(
+            revealed["result"]["memory_reference"]["label"],
+            "Personal · 联系邮箱",
+        )
+
+        status, updated = self.post(
+            "/api/personal/profile/set",
+            {"key": "联系邮箱", "value": "new@example.com"},
+            token="synthetic-test-token",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(updated["result"]["status"], "applied")
+        self.assertEqual(updated["result"]["verification"]["status"], "passed")
+        self.assertEqual(
+            profile.get_item(self.profile_path, "联系邮箱")["value"],
+            "new@example.com",
+        )
+        _, home_payload, _ = self.get("/api/home")
+        self.assertNotIn(
+            "new@example.com",
+            json.dumps(home_payload["memory_home"], ensure_ascii=False),
+        )
+
+    def test_profile_ui_rejects_secrets_and_structured_overwrite(self) -> None:
+        with self.assertRaises(HTTPError) as secret:
+            self.post(
+                "/api/personal/profile/set",
+                {"key": "账号", "value": "password: dont-store-this"},
+                token="synthetic-test-token",
+            )
+        self.assertEqual(secret.exception.code, 400)
+
+        profile.add_entry(self.profile_path, "经历", {"机构": "Example Org"})
+        with self.assertRaises(HTTPError) as structured:
+            self.post(
+                "/api/personal/profile/set",
+                {"key": "经历", "value": "不要覆盖"},
+                token="synthetic-test-token",
+            )
+        self.assertEqual(structured.exception.code, 400)
 
     def test_first_learning_report_round_trip(self) -> None:
         _, before, _ = self.get("/api/onboarding")

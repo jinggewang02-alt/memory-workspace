@@ -42,7 +42,7 @@ def prepare(
     report = capability_report or build_report(skill_root, environ=environment)
     if report["status"] != "READY":
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "command": "quickstart",
             "status": report["status"],
             "ready": False,
@@ -85,28 +85,33 @@ def prepare(
     workspaces = workspace.list_workspaces(root=paths["workspaces"])
     capture_check = capture.doctor(root=paths["capture"])
 
-    next_actions = [
-        "Start using Memory Workspace; new memories will remain review-first.",
-    ]
-    if not workspaces:
-        next_actions.append(
-            "Create the first Workspace when a real project needs durable context."
-        )
-    if learning["status"] == "needs_history_source":
-        next_actions.append(
-            "History learning is optional and can be configured later without blocking use."
-        )
-    elif learning["status"] == "awaiting_review":
-        next_actions.append(
-            "Review and confirm the generated Query-habit draft before it becomes active."
+    notices: list[dict[str, str]] = []
+    if learning["status"] == "awaiting_review":
+        notices.append(
+            {
+                "kind": "history_review_ready",
+                "message": "A Query-habit draft is ready for review.",
+            }
         )
     elif learning["status"] == "needs_attention":
-        next_actions.append(
-            "Fix or remove the configured history handoff; core local memory is already ready."
+        notices.append(
+            {
+                "kind": "history_source_attention",
+                "message": (
+                    "The configured history handoff needs attention; core local memory "
+                    "is already ready."
+                ),
+            }
         )
 
+    python = report["capabilities"]["python"]
+    ui_command = [
+        str(python.get("executable") or "<python-3.10+>"),
+        str((skill_root / "scripts" / "ui.py").resolve()),
+    ]
+
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "command": "quickstart",
         "status": "READY",
         "ready": True,
@@ -125,12 +130,55 @@ def prepare(
         },
         "external_connectors": {"lark": "disabled_by_default"},
         "capture": capture_check,
-        "ui": {
-            "launch_ready": True,
-            "default_url": "http://127.0.0.1:8741/",
-            "loopback_only": True,
+        "memory_behavior": {
+            "explicit_save": "direct_with_readback",
+            "implicit_capture": "adaptive_local_staging",
+            "processing": "nightly_or_next_startup",
+            "preferred_local_time": "22:00",
+            "scheduling_status": "host_integration_required",
+            "canonical_write_policy": "candidate_only_without_explicit_save",
+            "opt_out_environment": "MWORK_ASYNC_CAPTURE=off",
         },
-        "next_actions": next_actions,
+        "ui": {
+            "status": "not_started",
+            "url": None,
+            "launch_command": ui_command,
+            "health_path": "/api/health",
+            "loopback_only": True,
+            "requires_same_device_browser": True,
+            "requires_long_lived_process": True,
+        },
+        "message": "Memory Workspace is ready. Choose a simple next path.",
+        "primary_action": {
+            "kind": "continue",
+            "label": "直接开始",
+        },
+        "menu": [
+            {
+                "id": "continue",
+                "label": "直接开始",
+                "description": "继续正常对话；明确要求会立即记住，其余内容晚间整理。",
+                "recommended": True,
+            },
+            {
+                "id": "import",
+                "label": "导入已有内容",
+                "description": "带入已有文件，或当前 Agent 已获授权可见的历史。",
+                "recommended": False,
+            },
+            {
+                "id": "review",
+                "label": "查看我的记忆",
+                "description": "查看已保存内容、习惯草稿和待审候选。",
+                "recommended": False,
+            },
+        ],
+        "notices": notices,
+        "next_actions": [
+            "直接开始：继续正常对话；明确要求会立即记住，其余内容晚间整理。",
+            "导入已有内容：带入已有文件，或当前 Agent 已获授权可见的历史。",
+            "查看我的记忆：查看已保存内容、习惯草稿和待审候选。",
+        ],
         "capability_status": report["status"],
     }
 

@@ -1,7 +1,7 @@
-# Adapter Contract（领域连接器契约）
+# Adapter Contract（适配器契约）
 
-Status: Draft v0.2
-Updated: 2026-08-27
+Status: Draft v0.3
+Updated: 2026-08-28
 
 本文档定义“通用记忆内核 + 可选领域连接器”的边界。连接器负责发现外部证据，内核
 负责解析、候选、审阅和正式写入。安装 Memory Workspace 本身不等于启用任何外部连接器。
@@ -17,6 +17,21 @@ Updated: 2026-08-27
 - `Capture Event` 表示当前或历史 Agent Query，服务于用户习惯学习和轻量异步捕获。
 - `External Observation` 表示聊天、消息、文档、人物等外部证据，必须保留快照和覆盖范围。
 - 两者可以指向同一项目，但不能互相冒充，也不能绕过审阅直接修改正式记忆。
+
+### 当前 Agent 的三个宿主接点
+
+任何 Agent 产品都可以用自己的机制实现，不需要在内核中写死产品名：
+
+| 接点 | 最小动作 | 关键边界 |
+|---|---|---|
+| 用户 Query 到达 | 明确“记住”走正式写入；其余 Query 最多执行一次本地 `event enqueue` | 不在回答关键路径调用模型分类 |
+| 当地晚间 | 运行 `capture.py nightly plan --json`，将整批 Episode 交给至多一个 Worker | 未明确保存的内容只能生成 Candidate |
+| Agent 回复完成 | 若实际使用了 `memory_reference`，在末尾追加一行 `参考记忆` | 只列实际使用项，不泄露敏感值和绝对路径 |
+
+推荐晚间时间是 22:00。宿主没有定时能力时，在下次启动、空闲期或打开 Review UI 时补跑。
+`quickstart` 只声明 `scheduling_status=host_integration_required`，不会伪装已经安装系统定时器。
+完整引用格式见 [response-references.md](response-references.md)，夜间批处理见
+[async-capture.md](async-capture.md)。
 
 ## 2. 激活是硬边界
 

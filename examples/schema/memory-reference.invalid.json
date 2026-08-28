@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "uri": "memory://workspace/memory-workspace/private/tmp/secret.md",
+  "scope": "workspace",
+  "kind": "page",
+  "label": "unsafe absolute path",
+  "workspace_id": "memory-workspace",
+  "item_id": "secret",
+  "path": "/private/tmp/secret.md"
+}

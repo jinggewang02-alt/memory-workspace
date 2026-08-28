@@ -224,6 +224,17 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--limit", type=int, default=20)
     add_json_flag(command)
 
+    nightly_parser = sub.add_parser(
+        "nightly", help="prepare the portable evening memory-processing batch"
+    )
+    nightly_sub = nightly_parser.add_subparsers(dest="nightly_cmd", required=True)
+    command = nightly_sub.add_parser(
+        "plan", help="group pending observations for one evening Worker"
+    )
+    command.add_argument("--idle-minutes", type=int, default=30)
+    command.add_argument("--limit", type=int, default=20)
+    add_json_flag(command)
+
     feedback_parser = sub.add_parser("feedback", help="append outcomes that improve future policies")
     feedback_sub = feedback_parser.add_subparsers(dest="feedback_cmd", required=True)
     command = feedback_sub.add_parser("record", help="record an explicit outcome")
@@ -273,6 +284,8 @@ def command_name(args: argparse.Namespace) -> str:
         return f"policy.{args.policy_cmd}"
     if args.cmd == "worker":
         return f"worker.{args.worker_cmd}"
+    if args.cmd == "nightly":
+        return f"nightly.{args.nightly_cmd}"
     if args.cmd == "feedback":
         return f"feedback.{args.feedback_cmd}"
     if args.cmd == "eval":
@@ -417,6 +430,8 @@ def run_command(args: argparse.Namespace) -> Any:
         return policy.activate_policy(args.policy_id, actor=args.actor)
     if args.cmd == "worker" and args.worker_cmd == "plan":
         return episodes.plan_pending(idle_minutes=args.idle_minutes, limit=args.limit)
+    if args.cmd == "nightly" and args.nightly_cmd == "plan":
+        return episodes.plan_nightly(idle_minutes=args.idle_minutes, limit=args.limit)
     if args.cmd == "feedback" and args.feedback_cmd == "record":
         return feedback.record_feedback(
             action=args.action,
@@ -517,7 +532,14 @@ def render_text(args: argparse.Namespace, result: Any) -> None:
                 f"{item['episode_id']}\t{item['status']}\t{item['current_phase']}\t"
                 f"{item['message_preview']}"
             )
-    elif name in {"episode.show", "episode.resolve", "worker.plan", "policy.show", "eval.replay"}:
+    elif name in {
+        "episode.show",
+        "episode.resolve",
+        "worker.plan",
+        "nightly.plan",
+        "policy.show",
+        "eval.replay",
+    }:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     elif name == "policy.build":
         print(f"[capture] {result['policy']['policy_id']} → draft")

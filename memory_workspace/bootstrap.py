@@ -20,10 +20,12 @@ REQUIRED_RESOURCES = (
     "scripts/store.py",
     "scripts/workspace.py",
     "memory_workspace/quickstart.py",
+    "memory_workspace/home_view.py",
     "ui/index.html",
     "ui/app.css",
     "ui/app.js",
     "schemas/memory-home.schema.json",
+    "schemas/memory-home-view.schema.json",
     "schemas/query-habits.schema.json",
     "schemas/onboarding-state.schema.json",
     "schemas/connector-config.schema.json",
@@ -101,6 +103,7 @@ def build_report(
     skill_root,
     environ=None,
     python_version=None,
+    python_executable=None,
     path_probe=None,
 ):
     """Describe capabilities without creating or modifying any user files."""
@@ -108,6 +111,9 @@ def build_report(
     environment = dict(os.environ if environ is None else environ)
     root = Path(skill_root).resolve()
     version = tuple(sys.version_info[:3] if python_version is None else python_version)
+    executable = str(
+        Path(sys.executable if python_executable is None else python_executable).resolve()
+    )
     probe = _path_report if path_probe is None else path_probe
 
     missing = [relative for relative in REQUIRED_RESOURCES if not (root / relative).is_file()]
@@ -200,6 +206,7 @@ def build_report(
             "command_execution": True,
             "python": {
                 "available": True,
+                "executable": executable,
                 "version": _python_text(version),
                 "minimum": "{0}.{1}".format(*MINIMUM_PYTHON),
                 "meets_minimum": python_ready,

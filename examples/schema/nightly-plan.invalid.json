@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "job": "nightly-memory-processing",
+  "status": "ready",
+  "generated_at": "tonight",
+  "preferred_local_time": "evening",
+  "fallback": "write_directly",
+  "current_query_work": "model_classification",
+  "canonical_write_policy": "automatic",
+  "pending_episode_count": 1,
+  "episodes": []
+}

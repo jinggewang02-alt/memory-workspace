@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare Memory Home and launch the loopback-only review UI."""
+"""Prepare Memory Home and launch its loopback-only local UI."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from memory_workspace.ui_server import create_server  # noqa: E402
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Initialize Memory Workspace and launch its local review UI"
+        description="Initialize Memory Home and launch its local management UI"
     )
     parser.add_argument(
         "--home",
@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _failure(exc: Exception) -> dict[str, object]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "command": "quickstart",
         "status": "SETUP_FAILED",
         "ready": False,
@@ -67,10 +67,24 @@ def _render_text(result: dict[str, object]) -> None:
             created, initialized["home_path"]
         )
     )
+    print("[memory-workspace] 已准备好。你可以选择：")
+    menu = result.get("menu")
+    assert isinstance(menu, list)
+    for index, item in enumerate(menu, 1):
+        assert isinstance(item, dict)
+        recommended = "（推荐）" if item.get("recommended") else ""
+        print(
+            "  {0}. {1}{2} — {3}".format(
+                index,
+                item["label"],
+                recommended,
+                item["description"],
+            )
+        )
     learning = result["history_learning"]
     assert isinstance(learning, dict)
-    if learning["status"] == "needs_history_source":
-        print("[memory-workspace] 历史学习尚未连接，可稍后配置，不影响现在使用。")
+    if learning["status"] == "awaiting_review":
+        print("[memory-workspace] 有一份 Query 习惯草稿待审阅。")
     elif learning["status"] == "needs_attention":
         print(
             "[memory-workspace] 历史学习配置需要检查；基础能力仍可使用：{0}".format(
@@ -114,7 +128,7 @@ def main() -> int:
 
     host, port = server.server_address[:2]
     url = "http://{0}:{1}/".format(host, port)
-    print("[memory-workspace] 本地审阅台已启动：{0}".format(url), flush=True)
+    print("[memory-workspace] Memory Home 本地管理台已启动：{0}".format(url), flush=True)
     print("[memory-workspace] 按 Ctrl+C 停止；数据不会离开本机。", flush=True)
     if not args.no_open:
         webbrowser.open(url)

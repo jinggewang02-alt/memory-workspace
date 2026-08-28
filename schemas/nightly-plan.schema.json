@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/nightly-plan.schema.json",
+  "title": "Portable nightly memory-processing plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "job", "status", "generated_at", "preferred_local_time", "fallback", "current_query_work", "canonical_write_policy", "pending_episode_count", "episodes"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "job": {"const": "nightly-memory-processing"},
+    "status": {"enum": ["ready", "nothing_to_process"]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "preferred_local_time": {"type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$"},
+    "fallback": {"const": "next_startup_or_idle"},
+    "current_query_work": {"const": "local_enqueue_only"},
+    "canonical_write_policy": {"const": "candidate_only"},
+    "pending_episode_count": {"type": "integer"},
+    "episodes": {"type": "array", "items": {"type": "object"}}
+  }
+}

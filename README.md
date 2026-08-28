@@ -12,7 +12,7 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - 哪些个人资料需要跨项目精确召回；
 - 用户通常在什么情况下希望 Agent 记录，什么情况下不希望被打扰。
 
-> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地审阅 UI，并新增了显式启用的 Lark Connector 协议与有界读取计划。Personal Work 目前已完成目录与 Candidate v3 路由协议，自动维护工作脉络、连接器执行与更完整的“项目脉络编译”仍在迭代中，详见 [Roadmap](#roadmap)。
+> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地 Memory Home UI，并新增了显式启用的 Lark Connector 协议与有界读取计划。Personal Work 目前已完成目录、Home UI 只读总览与 Candidate v3 路由协议，自动维护工作脉络、连接器执行与更完整的“项目脉络编译”仍在迭代中，详见 [Roadmap](#roadmap)。
 
 ## 它如何工作
 
@@ -21,19 +21,19 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
         │
         ├─ 1. 首次启用：检查运行环境
         ├─ 2. 获得授权时：分析 Agent 可见的近 30 天用户 Query
-        ├─ 3. 日常使用：轻量写入本地异步队列，不阻塞当前回答
-        └─ 4. 后台整理：生成可解释的候选记忆
-                         │
-                         ▼
-                  本地 Review UI
-                  ├─ 批准 / 拒绝
-                  ├─ 查看依据
-                  └─ 写入并回读校验
-                         │
-             ┌───────────┴───────────┐
-             ▼                       ▼
-       Personal Memory          Workspaces
-       个人资料与工作脉络         项目证据与 Wiki
+        │
+        ├─ 3a. 明确“记住” ──> 立即写入并回读校验 ───────────┐
+        │                                                   │
+        └─ 3b. 普通对话 ──> 本地轻量暂存 ──> 晚间批量整理    │
+                                              │             │
+                                              ▼             │
+                                      本地 Memory Home UI    │
+                               Personal / Workspace / 待审   │
+                                              │             │
+                                  ┌───────────┴─────────────┘
+                                  ▼
+                     Personal Memory / Workspaces
+                     个人资料与工作脉络 / 项目证据与 Wiki
 ```
 
 ### 三个职责清晰、同根存储的层
@@ -50,40 +50,46 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - **项目 Workspace CLI**：初始化、检查、摄取不可变来源、查询索引，以及提议—审阅—应用 Wiki 变更。
 - **精确个人档案**：支持单值和结构化条目的保存、查询、更新、删除与导出。
 - **首次 30 天习惯学习**：仅在 Agent 已获授权且能看到历史时，分析近 30 天用户 Query，生成 `query-habits.md` 和待确认的触发策略。
-- **异步记忆链路**：当前对话只进行轻量入队，后台再聚合 Episode、解析去向并生成 Candidate，降低对回答耗时的影响。
-- **本地 Review UI**：查看习惯报告和候选记忆，执行批准、拒绝、应用，并展示写入回执。
+- **主动记忆链路**：明确“记住”时立即正式写入并回读；未明确的 Query 默认只在本机轻量暂存，晚间按 Episode 批量解析并生成 Candidate，降低对回答耗时的影响。
+- **记忆引用**：回答真正使用 Personal Memory 或 Workspace 时，末尾显示一行不含敏感值和绝对路径的简短 `参考记忆`。
+- **本地 Memory Home UI**：在一个入口查看 Personal Memory、Workspace、习惯报告和候选记忆；精确资料值默认隐藏，单值修改会写入并逐字回读。
 - **协议与 JSON Schema**：事件、候选、决策、应用回执、策略、Workspace 和索引均有可验证的数据结构。
 - **统一 Memory Home**：默认在 `~/.memory-home/` 下并列保存 Personal、Workspaces 和 System；旧目录可先预览、再只复制迁移。
 - **可选 Lark Connector 计划器**：只有用户明确启用后，才生成近 30 天基线和每日增量的只读计划；默认不会探测、认证或读取飞书。
 
 ## 5 分钟开始使用
 
-### 下载并启动
+### 下载并准备
 
 ```bash
 git clone https://github.com/jinggewang02-alt/memory-workspace.git
 cd memory-workspace
-python3 scripts/quickstart.py
+python3 scripts/quickstart.py --json
 ```
 
-这一个命令会依次完成能力检查、初始化 `~/.memory-home/`，然后只在
-`127.0.0.1` 启动本地 UI。命令可重复运行；已有文件不会被重建或覆盖。
+Agent 应先找到环境中实际可用的 Python 3.10+ 启动器，再执行这条命令；不能因为命令名
+是 `python3` 就假定版本满足要求。这一个命令会完成能力检查并初始化
+`~/.memory-home/`。命令可重复运行；已有文件不会被重建或覆盖。
 
 运行要求是 Python 3.10+、可执行本地命令，以及一个不会随会话消失的可写目录。
 缺少条件时，命令会停在写入前，并明确返回
 `NEEDS_RUNTIME`、`NEEDS_PERSISTENT_PATH`、`NEEDS_PERMISSION` 或 `UNSUPPORTED`。
 
-如果由 Agent 完成安装，使用机器可读模式。它会初始化目录并返回收据，但不会占用前台
-进程启动 UI：
-
-```bash
-python3 scripts/quickstart.py --json
-```
-
 返回 `READY` 后，基础能力已经可用。此时没有历史来源、没有 Workspace、没有启用飞书，
 都属于正常的可选状态，不是安装失败。如果当前 Agent 已经通过标准适配器显式交付了
 授权历史，一键准备会自动执行一次有界的近 30 天学习，并停在 `awaiting_review` 等待确认。
 历史文件损坏或不符合协议时只标记为 `needs_attention`，不会撤销已经完成的基础初始化。
+
+首次成功后只提供三个可选路径，避免把底层模块变成用户任务：
+
+1. **直接开始（推荐）**：继续正常对话；明确要求会立即记住，其余内容晚间整理。
+2. **导入已有内容**：带入已有文件，或当前 Agent 已获授权可见的历史。
+3. **查看我的记忆**：查看已保存内容、习惯草稿和待审候选。
+
+没有历史来源时安静延后；没有待审内容时无需打开 UI。
+
+机器可读模式不会启动 HTTP 服务。它明确返回 `ui.status=not_started`、`ui.url=null`，
+并附带当前 Python 解释器对应的启动命令；这表示“可以启动”，不是“链接已经可访问”。
 
 ### 按需创建第一个 Workspace
 
@@ -131,15 +137,21 @@ python3 scripts/connectors.py plan my-workspace --provider lark --json
 python3 scripts/ui.py
 ```
 
-然后访问 [http://127.0.0.1:8741/](http://127.0.0.1:8741/)。新用户直接使用
-`quickstart.py` 即可。
+只有浏览器和 Agent 命令运行在同一台设备、并且该进程能够持续运行时，才使用本地 UI。
+服务成功启动后访问 `http://127.0.0.1:8741/`，并可通过 `/api/health` 确认服务确实处于
+`ready`。远程 Agent 或临时沙箱不能把自己的 `127.0.0.1` 当成用户电脑上的链接；这种
+情况下继续使用 CLI 或对话完成审阅。
 
-UI 当前用于两类操作：
+UI 当前提供四个并列视角：
 
-1. 查看首次学习生成的 Query 习惯报告；
-2. 审阅、批准、拒绝和应用后台产生的候选记忆。
+1. 查看整个 Memory Home 的 Personal、Workspace 与待审数量；
+2. 查看精确个人资料字段；值默认隐藏，主动查看后可新增或修改单值资料；
+3. 只读查看跨项目工作总览、项目组合、确认偏好和待确认模式；
+4. 查看 Query 习惯报告，并审阅、批准、拒绝和应用后台产生的候选记忆。
 
-浏览器不会直接改写正式记忆文件。所有变更都经过本地协议、单一 Writer、回读和校验。
+浏览器不会任意改写 Markdown、结构化经历或 Workspace 文件。用户在表单中明确保存的
+Exact Profile 单值会通过正式 Profile Writer 写入并逐字回读；Candidate 仍通过审阅与
+单一 Writer 应用。没有待审习惯或 Candidate 时，UI 仍可作为整个 Memory Home 的查看入口。
 
 旧版本用户先预览迁移；确认无冲突后再显式复制，旧文件不会删除：
 
@@ -150,12 +162,13 @@ python3 scripts/home.py migrate --json
 
 ## 用户旅程
 
-1. **安装能力**：用户把仓库交给自己的 Agent，并允许它使用持久的 `~/.memory-home/`。
-2. **环境准备**：Agent 根据能力探测结果完成最小必要配置，不依赖平台白名单。
-3. **学习习惯**：在用户授权且历史可见时，分析近 30 天 Query，形成可审阅的个人触发策略。
-4. **可选外部证据**：只有用户明确启用某个 Connector 时，Agent 才按其配置建立基线并检查增量；非飞书用户不会触发 Lark 流程。
-5. **日常协作**：Agent 正常回答；值得保留的内容先异步进入候选区，不阻塞当前 Query，也不直接污染长期记忆。
-6. **用户掌控**：用户在本地 UI 查看依据、决定是否保留；获批内容才进入 Personal Memory 或目标 Workspace。
+1. **准备完成**：用户把仓库交给 Agent；Agent 探测能力并初始化持久的 `~/.memory-home/`。
+2. **选择路径**：直接开始、导入已有内容，或查看已有记忆；默认推荐直接开始。
+3. **明确保存**：用户说“记住/保存”时，Agent 同轮写入正式记忆并回读校验。
+4. **普通对话**：只做本地轻量暂存，不在当前 Query 中调用模型判断是否记忆。
+5. **晚间加工**：宿主在当地晚间批量聚合 Episode；没有调度能力时下次启动或空闲补跑。
+6. **按需审阅**：未明确保存的内容最多生成 Candidate，经用户批准才进入正式记忆。
+7. **透明召回**：回答实际使用 Memory Home 时，末尾显示简短的 `参考记忆`。
 
 ## Agent 如何接入
 
@@ -175,6 +188,7 @@ python3 scripts/home.py migrate --json
 - **Local-first**：正式数据默认保存在用户自己的持久目录中。
 - **Evidence-first**：原始来源和外部快照不可变；Wiki 中的重要事实需要能回到来源。
 - **Review-before-write**：候选内容默认不直接进入正式记忆。
+- **Explicit-save exception**：用户明确要求记住的少量清晰事实可同轮正式写入；未明确内容仍须审阅。
 - **Scope-aware**：只能读取用户明确授权、当前 Agent 可见的数据，不能因为关键词或名称相似扩大范围。
 - **Connector opt-in**：外部连接器默认关闭；安装 Skill、检测到 CLI 或提到平台名称都不构成启用授权。
 - **Secret-safe**：密码、Cookie、访问令牌、私钥、一次性验证码和金融账号不应进入记忆库。
@@ -187,7 +201,7 @@ memory-workspace/
 ├── SKILL.md                 # Agent 使用入口与行为边界
 ├── memory_workspace/        # Python 核心实现
 ├── scripts/                 # Workspace、记忆、Capture、UI 等 CLI
-├── ui/                      # 本地审阅界面
+├── ui/                      # 本地 Memory Home 管理界面
 ├── schemas/                 # 协议 JSON Schema
 ├── adapters/                # Agent / 平台适配层
 ├── references/              # 数据模型、工作流与协议说明
@@ -225,7 +239,8 @@ python3 -m unittest discover -s tests -v
 
 - [数据模型](references/data-model.md)
 - [异步 Capture 设计](references/async-capture.md)
-- [本地 Review Inbox](references/local-review-inbox.md)
+- [回复中的记忆引用](references/response-references.md)
+- [本地 Memory Home UI](references/local-review-inbox.md)
 - [自适应策略](references/adaptive-policy.md)
 - [Workspace CLI](references/workspace-cli.md)
 - [Memory Home](references/memory-home.md)

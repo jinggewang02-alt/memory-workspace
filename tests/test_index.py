@@ -67,6 +67,14 @@ class WorkspaceIndexTests(unittest.TestCase):
         self.assertTrue(
             any(item["type"] == "source" and item["id"] == "S-001" for item in query["results"])
         )
+        source_result = next(item for item in query["results"] if item["type"] == "source")
+        reference = source_result["memory_reference"]
+        self.assertEqual(reference["schema_version"], 1)
+        self.assertEqual(reference["scope"], "workspace")
+        self.assertEqual(reference["workspace_id"], "search-lab")
+        self.assertEqual(reference["label"], "Workspace · Search Lab · Review Roadmap")
+        self.assertFalse(reference["path"].startswith("/"))
+        self.assertIn(reference, query["memory_references"])
 
     def test_rebuild_indexes_project_pages_and_full_text(self) -> None:
         project = self.workspace / "wiki" / "projects" / "memory-ui"
@@ -83,6 +91,7 @@ class WorkspaceIndexTests(unittest.TestCase):
         self.assertTrue(
             any(item["type"] == "page" and item["title"] == "Memory UI" for item in query["results"])
         )
+        self.assertTrue(query["memory_references"])
 
     def test_query_rejects_invalid_limit(self) -> None:
         result = self.result_json(

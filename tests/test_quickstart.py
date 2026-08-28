@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -78,6 +79,38 @@ class QuickstartTests(unittest.TestCase):
         self.assertEqual(first["history_learning"]["status"], "needs_history_source")
         self.assertTrue(first["history_learning"]["optional"])
         self.assertEqual(first["external_connectors"]["lark"], "disabled_by_default")
+        self.assertEqual(first["schema_version"], 2)
+        self.assertEqual(first["primary_action"]["kind"], "continue")
+        self.assertEqual(first["primary_action"]["label"], "直接开始")
+        self.assertEqual(
+            [item["id"] for item in first["menu"]],
+            ["continue", "import", "review"],
+        )
+        self.assertTrue(first["menu"][0]["recommended"])
+        self.assertEqual(len(first["next_actions"]), 3)
+        self.assertEqual(
+            first["memory_behavior"]["explicit_save"], "direct_with_readback"
+        )
+        self.assertEqual(
+            first["memory_behavior"]["processing"], "nightly_or_next_startup"
+        )
+        self.assertEqual(
+            first["memory_behavior"]["scheduling_status"],
+            "host_integration_required",
+        )
+        self.assertEqual(
+            first["memory_behavior"]["canonical_write_policy"],
+            "candidate_only_without_explicit_save",
+        )
+        self.assertEqual(first["notices"], [])
+        self.assertEqual(first["ui"]["status"], "not_started")
+        self.assertIsNone(first["ui"]["url"])
+        self.assertNotIn("default_url", first["ui"])
+        self.assertEqual(
+            first["ui"]["launch_command"][0], str(Path(sys.executable).resolve())
+        )
+        self.assertTrue(first["ui"]["requires_same_device_browser"])
+        self.assertTrue(first["ui"]["requires_long_lived_process"])
         self.assertEqual(exit_code(first), 0)
 
     def test_history_and_capture_keep_separate_roots(self) -> None:
@@ -120,6 +153,7 @@ class QuickstartTests(unittest.TestCase):
         )
 
         self.assertEqual(result["history_learning"]["status"], "awaiting_review")
+        self.assertEqual(result["notices"][0]["kind"], "history_review_ready")
         self.assertTrue(
             (self.memory_home / "personal" / "learning" / "query-habits.md").is_file()
         )
@@ -145,6 +179,7 @@ class QuickstartTests(unittest.TestCase):
             capability_report=self.capability_report(python_version=(3, 9, 18)),
         )
         self.assertFalse(blocked["ready"])
+        self.assertEqual(blocked["schema_version"], 2)
         self.assertEqual(blocked["status"], "NEEDS_RUNTIME")
         self.assertFalse(self.memory_home.exists())
         self.assertEqual(exit_code(blocked), 1)
@@ -163,4 +198,5 @@ class QuickstartTests(unittest.TestCase):
         self.assertTrue(result["ready"])
         self.assertEqual(result["history_learning"]["status"], "needs_attention")
         self.assertIn(".jsonl", result["history_learning"]["error"])
+        self.assertEqual(result["notices"][0]["kind"], "history_source_attention")
         self.assertTrue((self.memory_home / "memory-home.json").is_file())
