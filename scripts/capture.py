@@ -33,7 +33,7 @@ def add_json_flag(parser: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Memory Workspace asynchronous capture CLI")
+    parser = argparse.ArgumentParser(description="Memory Home asynchronous capture CLI")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     command = sub.add_parser("doctor", help="show the durable capture queue path")

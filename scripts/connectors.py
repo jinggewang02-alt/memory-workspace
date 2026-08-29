@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure and plan explicit, provider-gated Memory Workspace connectors."""
+"""Configure and plan explicit, provider-gated Memory Home connectors."""
 
 from __future__ import annotations
 

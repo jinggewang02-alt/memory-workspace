@@ -3,7 +3,7 @@
 Status: Implemented protocol and planner v0.1
 Updated: 2026-08-27
 
-Lark Connector 是 Memory Workspace 的可选能力。默认关闭；非飞书用户不会看到认证、
+Lark Connector 是 Memory Home 的可选能力。默认关闭；非飞书用户不会看到认证、
 权限请求或数据读取。当前代码实现配置、状态、计划、Schema 与 checkpoint，不在计划器内
 直接执行 `lark-cli`。
 

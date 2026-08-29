@@ -54,20 +54,20 @@ def _failure(exc: Exception) -> dict[str, object]:
 
 
 def _render_text(result: dict[str, object]) -> None:
-    print("[memory-workspace] status: {0}".format(result["status"]))
+    print("[memory-home] status: {0}".format(result["status"]))
     if not result.get("ready"):
         if result.get("blocker"):
-            print("[memory-workspace] blocker: {0}".format(result["blocker"]))
+            print("[memory-home] blocker: {0}".format(result["blocker"]))
         return
     initialized = result["initialized"]
     assert isinstance(initialized, dict)
     created = "created" if initialized["created"] else "already ready"
     print(
-        "[memory-workspace] Memory Home {0}: {1}".format(
+        "[memory-home] Memory Home {0}: {1}".format(
             created, initialized["home_path"]
         )
     )
-    print("[memory-workspace] 已准备好。你可以选择：")
+    print("[memory-home] 已准备好。你可以选择：")
     menu = result.get("menu")
     assert isinstance(menu, list)
     for index, item in enumerate(menu, 1):
@@ -84,10 +84,10 @@ def _render_text(result: dict[str, object]) -> None:
     learning = result["history_learning"]
     assert isinstance(learning, dict)
     if learning["status"] == "awaiting_review":
-        print("[memory-workspace] 有一份 Query 习惯草稿待审阅。")
+        print("[memory-home] 有一份 Query 习惯草稿待审阅。")
     elif learning["status"] == "needs_attention":
         print(
-            "[memory-workspace] 历史学习配置需要检查；基础能力仍可使用：{0}".format(
+            "[memory-home] 历史学习配置需要检查；基础能力仍可使用：{0}".format(
                 learning.get("error") or "未知历史来源错误"
             )
         )
@@ -123,19 +123,19 @@ def main() -> int:
             workspaces_root=Path(str(paths["workspaces"])),
         )
     except (MemoryWorkspaceError, OSError) as exc:
-        print("[memory-workspace] 无法启动本地 UI：{0}".format(exc), file=sys.stderr)
+        print("[memory-home] 无法启动本地 UI：{0}".format(exc), file=sys.stderr)
         return 1
 
     host, port = server.server_address[:2]
     url = "http://{0}:{1}/".format(host, port)
-    print("[memory-workspace] Memory Home 本地管理台已启动：{0}".format(url), flush=True)
-    print("[memory-workspace] 按 Ctrl+C 停止；数据不会离开本机。", flush=True)
+    print("[memory-home] Memory Home 本地管理台已启动：{0}".format(url), flush=True)
+    print("[memory-home] 按 Ctrl+C 停止；数据不会离开本机。", flush=True)
     if not args.no_open:
         webbrowser.open(url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n[memory-workspace] 已停止。", flush=True)
+        print("\n[memory-home] 已停止。", flush=True)
     finally:
         server.server_close()
     return 0

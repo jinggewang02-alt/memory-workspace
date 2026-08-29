@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Memory Workspace JSON documents without third-party packages."""
+"""Validate Memory Home JSON documents without third-party packages."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def check_fixtures() -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Validate Memory Workspace JSON documents")
+    parser = argparse.ArgumentParser(description="Validate Memory Home JSON documents")
     parser.add_argument("schema", nargs="?", type=Path)
     parser.add_argument("document", nargs="?", type=Path)
     parser.add_argument("--fixtures", action="store_true")

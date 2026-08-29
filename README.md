@@ -1,8 +1,8 @@
-# Memory Workspace
+# Memory Home
 
 **给任意 Agent 一套本地优先、可审阅、以项目为中心的长期记忆。**
 
-Memory Workspace 不是一个需要长期在线的云服务。用户把它下载到自己的电脑或 Agent 运行环境后，Agent 在统一的 `~/.memory-home/` 中维护个人工作记忆、项目 Workspace、证据、Query 习惯和待审变更。
+Memory Home 不是一个需要长期在线的云服务。用户把它下载到自己的电脑或 Agent 运行环境后，Agent 在统一的 `~/.memory-home/` 中维护个人工作记忆、项目 Workspace、证据、Query 习惯和待审变更。
 
 它想解决的不是“多记几条零散信息”，而是让 Agent 在长期协作中逐渐理解：
 
@@ -114,7 +114,7 @@ python3 scripts/capture.py habits show
 python3 scripts/capture.py onboarding confirm
 ```
 
-Memory Workspace 不会静默搜索其他账号、扩大读取范围或绕过平台权限。
+Memory Home 不会静默搜索其他账号、扩大读取范围或绕过平台权限。
 
 ### 按需启用飞书
 
@@ -248,6 +248,6 @@ python3 -m unittest discover -s tests -v
 
 ## 项目状态
 
-Memory Workspace 目前适合个人、本地、可审阅的 Agent 记忆实验与持续迭代。它还不是一个提供稳定托管服务的 C 端产品，也不承诺所有 Agent 或外部平台都具备相同的历史访问能力。
+Memory Home 目前适合个人、本地、可审阅的 Agent 记忆实验与持续迭代。它还不是一个提供稳定托管服务的 C 端产品，也不承诺所有 Agent 或外部平台都具备相同的历史访问能力。
 
 如果你正在接入新的 Agent，建议先运行能力探测，再根据适配器契约完成最小环境准备。

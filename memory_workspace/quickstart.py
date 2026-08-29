@@ -1,4 +1,4 @@
-"""Idempotent first-use preparation for a local Memory Workspace."""
+"""Idempotent first-use preparation for a local Memory Home."""
 
 from __future__ import annotations
 
@@ -148,7 +148,7 @@ def prepare(
             "requires_same_device_browser": True,
             "requires_long_lived_process": True,
         },
-        "message": "Memory Workspace is ready. Choose a simple next path.",
+        "message": "Memory Home is ready. Choose a simple next path.",
         "primary_action": {
             "kind": "continue",
             "label": "直接开始",

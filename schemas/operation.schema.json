@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://memory-workspace.dev/schemas/operation.schema.json",
-  "title": "Memory Workspace operation",
+  "title": "Memory Home operation",
   "type": "object",
   "additionalProperties": false,
   "required": [

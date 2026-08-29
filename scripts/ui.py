@@ -30,18 +30,18 @@ def main() -> int:
     try:
         server = create_server(host=args.host, port=args.port)
     except (MemoryWorkspaceError, OSError) as exc:
-        print(f"[memory-workspace] 无法启动本地 UI：{exc}", file=sys.stderr)
+        print(f"[memory-home] 无法启动本地 UI：{exc}", file=sys.stderr)
         return 1
     host, port = server.server_address[:2]
     url = f"http://{host}:{port}/"
-    print(f"[memory-workspace] Memory Home 本地管理台已启动：{url}", flush=True)
-    print("[memory-workspace] 按 Ctrl+C 停止；数据不会离开本机。", flush=True)
+    print(f"[memory-home] Memory Home 本地管理台已启动：{url}", flush=True)
+    print("[memory-home] 按 Ctrl+C 停止；数据不会离开本机。", flush=True)
     if not args.no_open:
         webbrowser.open(url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n[memory-workspace] 已停止。", flush=True)
+        print("\n[memory-home] 已停止。", flush=True)
     finally:
         server.server_close()
     return 0

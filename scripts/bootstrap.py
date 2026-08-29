@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Probe an agent runtime before Memory Workspace reads or writes local data."""
+"""Probe an agent runtime before Memory Home reads or writes local data."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from memory_workspace.bootstrap import build_report, exit_code  # noqa: E402
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="Memory Workspace capability probe")
+    parser = argparse.ArgumentParser(description="Memory Home capability probe")
     parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 

@@ -1,4 +1,4 @@
-"""Disposable read model and local query adapter for a Memory Workspace."""
+"""Disposable read model and local query adapter for a Memory Home."""
 
 from __future__ import annotations
 

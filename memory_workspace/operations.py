@@ -194,7 +194,7 @@ def propose_file(
         if data is None:
             continue
         if b"-----BEGIN PRIVATE KEY-----" in data or b"-----BEGIN RSA PRIVATE KEY-----" in data:
-            raise MemoryWorkspaceError(f"{label}包含私钥标记；Memory Workspace 不保存高风险秘密。")
+            raise MemoryWorkspaceError(f"{label}包含私钥标记；Memory Home 不保存高风险秘密。")
         try:
             data.decode("utf-8")
         except UnicodeDecodeError as exc:
