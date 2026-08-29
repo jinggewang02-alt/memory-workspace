@@ -1,6 +1,6 @@
 # Local Memory Home UI
 
-Status: MVP v0.4
+Status: MVP v0.5
 
 The UI is a local, derived view over the whole Memory Home. Personal Memory,
 Workspaces, first-use learning, and asynchronous capture candidates are sibling
@@ -34,7 +34,7 @@ starts this process and returns `ui.status=not_started` with a null URL.
   per document;
 - counts for people, themes, timeline entries, and captures;
 - Workspace identity, health, source count, and operation count without absolute
-  Workspace paths;
+  Workspace paths, plus mapped-source and last-sync status;
 - current candidate-review counts.
 
 The protocol is defined by `schemas/memory-home-view.schema.json`. An exact
@@ -58,8 +58,11 @@ Home and Personal Memory:
 Workspace overview:
 
 1. list the Workspaces already registered under this Home;
-2. show each Workspace's health, source count, and operation count;
-3. keep project file editing in the existing Agent/Operation workflow.
+2. show each Workspace's health, source count, mapped Lark source count, and last sync;
+3. load `GET /api/workspaces/<id>` to display the rebuildable Project Memory view;
+4. show recent evidence excerpts, explicit decision/action markers, observed people,
+   artifacts, and Source Note references;
+5. keep project file editing in the existing Agent/Operation workflow.
 
 First-use learning:
 

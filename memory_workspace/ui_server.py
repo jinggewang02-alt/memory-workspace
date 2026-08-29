@@ -18,6 +18,7 @@ from . import (
     habits,
     home,
     home_view,
+    lark_sync,
     onboarding,
     policy,
     profile,
@@ -37,6 +38,9 @@ CANDIDATE_ACTION_RE = re.compile(
 )
 CANDIDATE_DETAIL_RE = re.compile(
     r"^/api/candidates/(?P<candidate_id>cand_[A-Za-z0-9_-]+)$"
+)
+WORKSPACE_DETAIL_RE = re.compile(
+    r"^/api/workspaces/(?P<workspace_id>[a-z0-9]+(?:-[a-z0-9]+)*)$"
 )
 STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -404,6 +408,13 @@ def build_handler(
                             ),
                         }
                     )
+                    return
+                workspace_match = WORKSPACE_DETAIL_RE.fullmatch(target.path)
+                if workspace_match:
+                    detail = lark_sync.load_project_memory(
+                        workspace_match.group("workspace_id"), root=workspaces_root
+                    )
+                    self._send_json({"ok": True, "project_memory": detail})
                     return
                 if target.path == "/api/onboarding":
                     self._send_json(

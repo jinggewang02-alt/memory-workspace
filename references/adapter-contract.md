@@ -1,7 +1,7 @@
 # Adapter Contract（适配器契约）
 
-Status: Draft v0.3
-Updated: 2026-08-28
+Status: Implemented core v0.4
+Updated: 2026-08-29
 
 本文档定义“通用记忆内核 + 可选领域连接器”的边界。连接器负责发现外部证据，内核
 负责解析、候选、审阅和正式写入。安装 Memory Workspace 本身不等于启用任何外部连接器。
@@ -55,8 +55,10 @@ Updated: 2026-08-28
 | `incremental` | 快照与 Observation | 从最近成功 checkpoint 到当前时间读取增量 |
 | `event acceleration` | 提醒或待核对事件 | 可选加速器；不能代替每日 user-identity 对账 |
 
-当前 `scripts/connectors.py plan` 只生成结构化读取计划，不执行外部命令。宿主 Agent 必须
-按计划逐项执行、保存不可变快照，并在成功后单独推进 checkpoint。
+`scripts/connectors.py plan` 只生成结构化发现计划，不执行外部命令。Lark 的项目同步由
+`sync` 执行，但它只接受 `lark-sources.json` 中由用户确认且
+`sync_mode=direct_execution` 的来源；发现清单不能直接喂给同步器。同步器负责顺序执行、
+完整快照、Observation、Source Note、manifest、checkpoint 和项目只读视图。
 
 ## 4. 统一 Observation
 
@@ -108,9 +110,10 @@ Exact Profile 的逐字写入流程。
 ## 6. 内核与 UI 边界
 
 - 连接器：只读发现、快照、规范化 Observation。
-- Resolver / Compiler：把人、文档、聊天、决策和执行解析到项目脉络。
+- Resolver / Compiler：当前先把已确认来源中的活动、显式决策/下一步标记、人物和文档生成
+  可重建项目视图；更深入的语义综合仍需 Candidate 审阅。
 - Candidate：给出 proposed patch、证据引用、原因码和新颖性。
-- UI：展示连接器状态、最近覆盖、候选依据，并捕获批准/拒绝意图。
+- UI：展示连接器状态、最近覆盖、项目脉络和来源回链，并捕获批准/拒绝意图。
 - Writer：唯一可以在批准后改写正式 Workspace 或 Personal Memory 的组件。
 
 ## 7. 非目标

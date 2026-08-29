@@ -12,7 +12,7 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - 哪些个人资料需要跨项目精确召回；
 - 用户通常在什么情况下希望 Agent 记录，什么情况下不希望被打扰。
 
-> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地 Memory Home UI，并新增了显式启用的 Lark Connector 协议与有界读取计划。Personal Work 目前已完成目录、Home UI 只读总览与 Candidate v3 路由协议，自动维护工作脉络、连接器执行与更完整的“项目脉络编译”仍在迭代中，详见 [Roadmap](#roadmap)。
+> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地 Memory Home UI。对于飞书项目，还能把用户明确确认的群聊与文档通过只读 `lark-cli` 保存为不可变证据，并生成带来源回链的项目脉络视图。Personal Work 的跨项目自动维护与更深入的语义综合仍在迭代中，详见 [Roadmap](#roadmap)。
 
 ## 它如何工作
 
@@ -55,7 +55,8 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - **本地 Memory Home UI**：在一个入口查看 Personal Memory、Workspace、习惯报告和候选记忆；精确资料值默认隐藏，单值修改会写入并逐字回读。
 - **协议与 JSON Schema**：事件、候选、决策、应用回执、策略、Workspace 和索引均有可验证的数据结构。
 - **统一 Memory Home**：默认在 `~/.memory-home/` 下并列保存 Personal、Workspaces 和 System；旧目录可先预览、再只复制迁移。
-- **可选 Lark Connector 计划器**：只有用户明确启用后，才生成近 30 天基线和每日增量的只读计划；默认不会探测、认证或读取飞书。
+- **项目级 Lark 证据链**：只有用户明确启用并映射项目来源后，才执行只读 `lark-cli`；完整返回保存为不可变快照，再规范化为 Observation、来源笔记和可重建项目视图。
+- **项目详情 UI**：Workspace 卡片可展开近期进展、明确标记的决策、下一步、参与者、产物、同步时间和证据来源。
 
 ## 5 分钟开始使用
 
@@ -125,11 +126,20 @@ Connector：
 python3 scripts/connectors.py status my-workspace --provider lark --json
 python3 scripts/connectors.py enable-lark my-workspace --json
 python3 scripts/connectors.py plan my-workspace --provider lark --json
+python3 scripts/connectors.py map-chat my-workspace --chat-id oc_xxx --label "项目执行群" --json
+python3 scripts/connectors.py map-document my-workspace --document-id doc_xxx --doc "<飞书文档 URL 或 token>" --label "项目 PRD" --json
+python3 scripts/connectors.py sync my-workspace --json
+python3 scripts/connectors.py project-view my-workspace --json
 ```
 
-`enable-lark` 只记录本地授权配置，`plan` 只生成有界的只读计划；两者都不会直接执行
-`lark-cli`。未启用时返回空计划，也不会请求飞书权限。详见
+`enable-lark` 只记录本地授权配置；`plan` 用于审阅有界发现计划，不执行读取。真正的
+`sync` 只读取 `map-chat` / `map-document` 明确映射到该 Workspace 的来源，不会把发现计划
+中的其他可见资源自动纳入项目。任何来源认证或 scope 失败都会停止本次同步，且不推进
+checkpoint。详见
 [Lark Connector](references/lark-connector.md)。
+
+以后 Agent 需要回忆项目时，可先读取 `project-view`；这个命令只读本地已保存证据，不会
+因为一次普通问题触发飞书网络请求。
 
 ### 已初始化时单独打开 UI
 
@@ -142,12 +152,13 @@ python3 scripts/ui.py
 `ready`。远程 Agent 或临时沙箱不能把自己的 `127.0.0.1` 当成用户电脑上的链接；这种
 情况下继续使用 CLI 或对话完成审阅。
 
-UI 当前提供四个并列视角：
+UI 当前提供五个并列视角：
 
 1. 查看整个 Memory Home 的 Personal、Workspace 与待审数量；
 2. 查看精确个人资料字段；值默认隐藏，主动查看后可新增或修改单值资料；
 3. 只读查看跨项目工作总览、项目组合、确认偏好和待确认模式；
 4. 查看 Query 习惯报告，并审阅、批准、拒绝和应用后台产生的候选记忆。
+5. 点开 Workspace 查看由最新证据生成的项目进展、决策标记、下一步、参与者和产物，并回到 Source Note。
 
 浏览器不会任意改写 Markdown、结构化经历或 Workspace 文件。用户在表单中明确保存的
 Exact Profile 单值会通过正式 Profile Writer 写入并逐字回读；Candidate 仍通过审阅与
@@ -181,7 +192,7 @@ python3 scripts/home.py migrate --json
 
 就可以接入同一套数据协议。平台适配器负责把各自的输入规范化为统一事件；Workspace、策略和 UI 不感知具体平台名称。
 
-适配器协议见 [references/adapter-contract.md](references/adapter-contract.md)，运行环境约定见 [references/runtime-capabilities.md](references/runtime-capabilities.md)。目前已提供通用历史文件交接方式，以及 Lark 的显式配置、状态、计划和 checkpoint 协议；计划的自动执行与规范化仍是后续工作，其他外部系统也仍属于扩展接口。
+适配器协议见 [references/adapter-contract.md](references/adapter-contract.md)，运行环境约定见 [references/runtime-capabilities.md](references/runtime-capabilities.md)。目前已提供通用历史文件交接方式，以及 Lark 的显式配置、来源映射、只读执行、不可变快照、Observation、checkpoint 和项目视图协议；其他外部系统仍属于扩展接口。
 
 ## 数据与安全边界
 
@@ -217,12 +228,11 @@ memory-workspace/
 
 下一阶段的重点不是继续增加零散记忆规则，而是把项目的完整脉络变成一等能力：
 
-- 为 Capture Event、Candidate 和来源补齐稳定的 `project_id`；
-- 增加 Project Resolver，把人、文档、聊天和任务解析到同一项目；
-- 增加 Project Compiler，持续维护项目的 `overview / context / decisions / execution`；
+- 把当前“用户明确映射来源”的 Project Resolver 扩展为可审阅的来源推荐，而不是自动纳入；
+- 在保守证据视图之上增加语义 Project Compiler，经 Candidate 审阅后维护正式的 `overview / context / decisions / execution`；
 - 实现 Candidate v3 的 Personal Work 单一 Writer，把跨项目职责、人物关系和主题安全地落到可审阅 Markdown；
-- 在 UI 中提供项目首页、人物关系、文档来源、决策链和时间线；
-- 完成 Lark 读取计划的执行、不可变快照规范化与项目解析，再为更多外部系统实现同一契约；
+- 在已有项目详情上补充关系、决策演进和跨快照时间线，并允许用户配置来源与发起同步；
+- 为更多外部系统实现同一套“确认映射—不可变快照—Observation—项目视图”契约；
 - 用用户的真实审阅反馈持续校准个人触发策略，而不是依赖一套全局固定规则。
 
 这些能力会继续遵守同一原则：**先保存证据，再形成推断；先让用户审阅，再改变长期记忆。**

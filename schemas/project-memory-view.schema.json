@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/project-memory-view.schema.json",
+  "title": "Rebuildable project memory read model",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "workspace", "generated_at", "status", "notice", "connector", "sections", "sources"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "workspace": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {"id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1}}
+    },
+    "generated_at": {"type": ["string", "null"]},
+    "status": {"enum": ["empty", "ready"]},
+    "notice": {"type": "string", "minLength": 1},
+    "connector": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider", "configured", "enabled", "mapped_sources", "last_success_at", "coverage_end"],
+      "properties": {
+        "provider": {"const": "lark"}, "configured": {"type": "boolean"}, "enabled": {"type": "boolean"},
+        "mapped_sources": {"type": "integer"}, "last_success_at": {"type": ["string", "null"]}, "coverage_end": {"type": ["string", "null"]}
+      }
+    },
+    "sections": {
+      "type": "object", "additionalProperties": false,
+      "required": ["updates", "decisions", "next_actions", "people", "artifacts"],
+      "properties": {
+        "updates": {"$ref": "#/$defs/items"}, "decisions": {"$ref": "#/$defs/items"},
+        "next_actions": {"$ref": "#/$defs/items"}, "people": {"$ref": "#/$defs/items"}, "artifacts": {"$ref": "#/$defs/items"}
+      }
+    },
+    "sources": {"type": "array", "items": {"$ref": "#/$defs/source"}}
+  },
+  "$defs": {
+    "items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "item": {
+      "type": "object", "additionalProperties": false,
+      "required": ["text", "occurred_at", "classification", "source_id", "source_note", "snapshot_ref"],
+      "properties": {
+        "text": {"type": "string", "minLength": 1}, "occurred_at": {"type": ["string", "null"]},
+        "classification": {"enum": ["source_excerpt", "explicit_marker", "observed_actor", "artifact_metadata"]},
+        "source_id": {"type": "string", "minLength": 1}, "source_note": {"type": "string", "pattern": "^wiki/sources/S-[0-9]+\\.md$"},
+        "snapshot_ref": {"type": "string", "pattern": "^connected/lark/"}
+      }
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_id", "kind", "label", "external_id", "source_note", "latest_snapshot_ref", "captured_at"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1}, "kind": {"enum": ["chat", "document"]},
+        "label": {"type": "string", "minLength": 1}, "external_id": {"type": "string", "minLength": 1},
+        "source_note": {"type": "string", "pattern": "^wiki/sources/S-[0-9]+\\.md$"},
+        "latest_snapshot_ref": {"type": "string", "pattern": "^connected/lark/"}, "captured_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

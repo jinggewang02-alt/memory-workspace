@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "workspace": {"id": "memory-workspace", "name": "Memory Workspace"},
+  "generated_at": "2026-08-29T02:00:00Z",
+  "status": "ready",
+  "notice": "由项目证据生成的可重建视图。",
+  "connector": {
+    "provider": "lark", "configured": true, "enabled": true,
+    "mapped_sources": 1, "last_success_at": "2026-08-29T02:00:00Z", "coverage_end": "2026-08-29T02:00:00Z"
+  },
+  "sections": {
+    "updates": [],
+    "decisions": [
+      {
+        "text": "决策：首版只覆盖已确认来源。",
+        "occurred_at": "2026-08-28T09:00:00Z",
+        "classification": "explicit_marker",
+        "source_id": "lark-chat-012345abcdef",
+        "source_note": "wiki/sources/S-001.md",
+        "snapshot_ref": "connected/lark/chats/lark-chat-012345abcdef/2026-08-29T020000Z.json"
+      }
+    ],
+    "next_actions": [],
+    "people": [],
+    "artifacts": []
+  },
+  "sources": [
+    {
+      "source_id": "lark-chat-012345abcdef",
+      "kind": "chat",
+      "label": "项目执行群",
+      "external_id": "oc_project",
+      "source_note": "wiki/sources/S-001.md",
+      "latest_snapshot_ref": "connected/lark/chats/lark-chat-012345abcdef/2026-08-29T020000Z.json",
+      "captured_at": "2026-08-29T02:00:00Z"
+    }
+  ]
+}

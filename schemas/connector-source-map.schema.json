@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/connector-source-map.schema.json",
+  "title": "Explicit project source map for a connector",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "provider", "workspace_id", "sources", "updated_at"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "provider": {"const": "lark"},
+    "workspace_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "kind", "external_id", "locator", "label", "enabled", "sync_mode", "added_at"],
+        "properties": {
+          "source_id": {"type": "string", "pattern": "^lark-(chat|document)-[a-f0-9]{12}$"},
+          "kind": {"enum": ["chat", "document"]},
+          "external_id": {"type": "string", "minLength": 1},
+          "locator": {"type": "string", "minLength": 1},
+          "label": {"type": "string", "minLength": 1},
+          "enabled": {"type": "boolean"},
+          "sync_mode": {"const": "direct_execution"},
+          "added_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "updated_at": {"type": "string", "format": "date-time"}
+  }
+}

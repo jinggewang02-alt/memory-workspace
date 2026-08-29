@@ -82,6 +82,12 @@
       "counts": {
         "sources": 4,
         "operations": 7
+      },
+      "project_memory": {
+        "status": "ready",
+        "lark_enabled": true,
+        "mapped_sources": 2,
+        "last_sync_at": "2026-08-29T02:00:00Z"
       }
     }
   ],

@@ -813,6 +813,14 @@ at schema v2, and adds a conflict-safe, copy-only migration from the former
 split roots. Candidate v3 defines Personal/Workspace routing while preserving
 the existing Writer as a compatibility layer. See `references/memory-home.md`.
 
+The v0.11 Lark project loop adds an explicit per-Workspace Source Map, executes
+read-only `lark-cli` only for `direct_execution` mappings, persists immutable
+snapshots and a sync manifest, normalizes External Observations, advances the
+checkpoint only after complete evidence capture, and builds a disposable
+`project-memory.json` view for the local UI. The view preserves Source Note and
+snapshot references and does not replace reviewed canonical Wiki pages. See
+`references/lark-connector.md`.
+
 This draft adds a Workspace manifest, stable Page and Claim identities,
 Snapshot hashes, Operation manifests, privacy classes, and a formal Skill/UI
 boundary. These are forward-compatible targets; existing workspace pages do

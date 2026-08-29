@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-workspace.dev/schemas/lark-sync-manifest.schema.json",
+  "title": "Immutable manifest for one project-scoped Lark sync",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "provider", "workspace_id", "captured_at", "trigger", "time_coverage", "complete", "snapshots", "limitations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "provider": {"const": "lark"},
+    "workspace_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "trigger": {"enum": ["first_enable", "agent_start", "idle", "manual", "event_reconciliation"]},
+    "time_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "string", "format": "date-time"},
+        "end": {"type": "string", "format": "date-time"}
+      }
+    },
+    "complete": {"const": true},
+    "snapshots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "kind", "external_id", "label", "command_category", "snapshot_ref", "result_count", "content_hash"],
+        "properties": {
+          "source_id": {"type": "string", "minLength": 1},
+          "kind": {"enum": ["chat", "document"]},
+          "external_id": {"type": "string", "minLength": 1},
+          "label": {"type": "string", "minLength": 1},
+          "command_category": {"type": "string", "minLength": 1},
+          "snapshot_ref": {"type": "string", "pattern": "^connected/lark/"},
+          "result_count": {"type": "integer"},
+          "content_hash": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+        }
+      }
+    },
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

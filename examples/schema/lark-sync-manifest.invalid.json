@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "provider": "lark",
+  "workspace_id": "memory-workspace",
+  "captured_at": "2026-08-29T02:00:00Z",
+  "trigger": "manual",
+  "time_coverage": {"start": "2026-07-30T02:00:00Z", "end": "2026-08-29T02:00:00Z"},
+  "complete": false,
+  "snapshots": [],
+  "limitations": []
+}

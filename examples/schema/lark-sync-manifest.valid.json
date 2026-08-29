@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "provider": "lark",
+  "workspace_id": "memory-workspace",
+  "captured_at": "2026-08-29T02:00:00Z",
+  "trigger": "manual",
+  "time_coverage": {"start": "2026-07-30T02:00:00Z", "end": "2026-08-29T02:00:00Z"},
+  "complete": true,
+  "snapshots": [
+    {
+      "source_id": "lark-chat-012345abcdef",
+      "kind": "chat",
+      "external_id": "oc_project",
+      "label": "项目执行群",
+      "command_category": "im.chat-messages-list",
+      "snapshot_ref": "connected/lark/chats/lark-chat-012345abcdef/2026-08-29T020000Z.json",
+      "result_count": 3,
+      "content_hash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    }
+  ],
+  "limitations": ["只覆盖明确映射来源。"]
+}

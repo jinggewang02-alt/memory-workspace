@@ -12,6 +12,7 @@ const state = {
   overview: null,
   memoryHome: null,
   profileKey: null,
+  workspaceId: null,
 };
 
 const labels = {
@@ -335,19 +336,125 @@ function renderWorkspaces(items) {
     return;
   }
   items.forEach((item) => {
-    const card = element("article", "workspace-card");
+    const card = element("button", "workspace-card");
+    card.type = "button";
+    const memory = item.project_memory;
+    card.classList.toggle("is-selected", item.workspace_id === state.workspaceId);
     card.append(
       element("span", "workspace-id", item.workspace_id),
       element("h3", "", item.name),
       element(
         "p",
         "",
-        item.counts.sources + " 个来源 · " + item.counts.operations + " 次审阅操作",
+        memory.mapped_sources
+          ? memory.mapped_sources + " 个已确认飞书来源 · " + item.counts.sources + " 份证据"
+          : item.counts.sources + " 个来源 · 尚未连接项目飞书来源",
       ),
-      element("span", "workspace-status", item.status === "ready" ? "结构正常" : "需要检查"),
+      element(
+        "span",
+        "workspace-status",
+        memory.status === "ready"
+          ? "项目脉络已生成 · " + formatDate(memory.last_sync_at)
+          : memory.lark_enabled ? "等待映射或同步" : "可按需连接 Lark",
+      ),
     );
+    card.addEventListener("click", () => loadWorkspaceDetail(item.workspace_id));
     list.append(card);
   });
+}
+
+function projectItem(item) {
+  const row = element("li", "project-memory-item");
+  row.append(
+    element("p", "", item.text),
+    element("span", "", formatDate(item.occurred_at) + " · " + item.source_note.replace("wiki/sources/", "来源 ").replace(".md", "")),
+  );
+  return row;
+}
+
+function renderProjectSection(parent, title, items, emptyText) {
+  const section = element("section", "project-memory-section");
+  section.append(element("h4", "", title));
+  if (!items.length) {
+    section.append(element("p", "project-memory-empty", emptyText));
+  } else {
+    const list = element("ul", "project-memory-list");
+    items.forEach((item) => list.append(projectItem(item)));
+    section.append(list);
+  }
+  parent.append(section);
+}
+
+function renderWorkspaceDetail(view) {
+  const panel = $("#workspace-detail");
+  panel.replaceChildren();
+  panel.hidden = false;
+  const head = element("div", "workspace-detail-head");
+  const title = element("div", "");
+  title.append(
+    element("span", "workspace-id", view.workspace.id),
+    element("h3", "", view.workspace.name),
+    element("p", "", view.notice),
+  );
+  const sync = element("div", "sync-summary");
+  sync.append(
+    element("strong", "", view.connector.mapped_sources + " 个确认来源"),
+    element("span", "", view.connector.last_success_at ? "同步于 " + formatDate(view.connector.last_success_at) : "尚未同步"),
+  );
+  head.append(title, sync);
+  panel.append(head);
+
+  if (view.status === "empty") {
+    const empty = element("div", "project-memory-onboarding");
+    empty.append(
+      element("strong", "", "让项目记忆开始积累"),
+      element("p", "", "先启用 Lark Connector，再把这个项目的群聊或文档明确映射进来；系统不会读取未映射资源。"),
+      element("code", "", "connectors.py map-chat / map-document → connectors.py sync"),
+    );
+    panel.append(empty);
+    return;
+  }
+  const grid = element("div", "project-memory-grid");
+  renderProjectSection(grid, "近期进展", view.sections.updates, "这次证据中没有可展示的更新。");
+  renderProjectSection(grid, "明确提到的决策", view.sections.decisions, "尚未发现带明确决策标记的内容。");
+  renderProjectSection(grid, "下一步", view.sections.next_actions, "尚未发现带待办标记的内容。");
+  renderProjectSection(grid, "参与者", view.sections.people, "来源没有提供可识别参与者。");
+  renderProjectSection(grid, "项目产物", view.sections.artifacts, "尚未同步项目文档。");
+  panel.append(grid);
+  const sources = element("section", "project-source-section");
+  sources.append(element("h4", "", "证据来源"));
+  const sourceList = element("div", "project-source-list");
+  view.sources.forEach((source) => {
+    const row = element("div", "project-source-row");
+    const identity = element("div", "");
+    identity.append(
+      element("strong", "", source.label),
+      element("span", "", source.kind === "chat" ? "飞书会话" : "飞书文档"),
+    );
+    const reference = element("div", "project-source-reference");
+    reference.append(
+      element("code", "", source.source_note.replace("wiki/sources/", "")),
+      element("span", "", "更新于 " + formatDate(source.captured_at)),
+    );
+    row.append(identity, reference);
+    sourceList.append(row);
+  });
+  sources.append(sourceList);
+  panel.append(sources);
+}
+
+async function loadWorkspaceDetail(workspaceId) {
+  state.workspaceId = workspaceId;
+  if (state.memoryHome) renderWorkspaces(state.memoryHome.workspaces);
+  const panel = $("#workspace-detail");
+  panel.hidden = false;
+  panel.replaceChildren(element("p", "project-memory-empty", "正在整理项目证据…"));
+  try {
+    const payload = await api("/api/workspaces/" + encodeURIComponent(workspaceId));
+    renderWorkspaceDetail(payload.project_memory);
+  } catch (error) {
+    panel.replaceChildren(element("p", "project-memory-empty", error.message));
+  }
 }
 
 function renderMemoryHome(data) {

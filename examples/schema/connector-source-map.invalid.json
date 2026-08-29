@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "provider": "lark",
+  "workspace_id": "memory-workspace",
+  "sources": [
+    {
+      "source_id": "lark-chat-012345abcdef",
+      "kind": "chat",
+      "external_id": "oc_project",
+      "locator": "oc_project",
+      "label": "项目执行群",
+      "enabled": true,
+      "sync_mode": "discover_everything",
+      "added_at": "2026-08-29T02:00:00Z"
+    }
+  ],
+  "updated_at": "2026-08-29T02:00:00Z"
+}

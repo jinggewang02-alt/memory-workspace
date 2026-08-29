@@ -124,7 +124,7 @@
     "workspace": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["workspace_id", "name", "created_at", "status", "error", "counts"],
+      "required": ["workspace_id", "name", "created_at", "status", "error", "counts", "project_memory"],
       "properties": {
         "workspace_id": {"type": "string", "minLength": 1},
         "name": {"type": "string", "minLength": 1},
@@ -138,6 +138,17 @@
           "properties": {
             "sources": {"type": "integer"},
             "operations": {"type": "integer"}
+          }
+        },
+        "project_memory": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "lark_enabled", "mapped_sources", "last_sync_at"],
+          "properties": {
+            "status": {"enum": ["empty", "ready"]},
+            "lark_enabled": {"type": "boolean"},
+            "mapped_sources": {"type": "integer"},
+            "last_sync_at": {"type": ["string", "null"]}
           }
         }
       }

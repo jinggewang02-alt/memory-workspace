@@ -561,9 +561,11 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
         content_path = metadata.get("content_path")
         if isinstance(content_path, str):
             raw_path = (workspace / content_path).resolve(strict=False)
-            if not is_within(raw_path, (workspace / "raw").resolve(strict=False)):
+            kind = str(metadata.get("kind") or "")
+            allowed_root = workspace / ("connected/lark" if kind.startswith("lark_") else "raw")
+            if not is_within(raw_path, allowed_root.resolve(strict=False)):
                 errors.append(
-                    f"{note.relative_to(workspace)}: source path escapes raw/: {content_path}"
+                    f"{note.relative_to(workspace)}: source path escapes {allowed_root.relative_to(workspace)}/: {content_path}"
                 )
                 continue
             if not raw_path.is_file():
@@ -617,12 +619,27 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
             errors.append(f"index: {exc}")
     checks.append("derived-index-schema")
 
+    project_memory = workspace / ".llm-wiki" / "index" / "project-memory.json"
+    if project_memory.is_file():
+        try:
+            from .lark_sync import PROJECT_VIEW_SCHEMA
+
+            view_errors = validate(load_json_object(project_memory), load_json_object(PROJECT_VIEW_SCHEMA))
+            errors.extend(f"project-memory: {error}" for error in view_errors)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"project-memory: {exc}")
+    checks.append("project-memory-schema")
+
     from .connectors import validate_workspace_connector_files
 
     connector_errors = validate_workspace_connector_files(workspace, slug)
     errors.extend(f"connector: {error}" for error in connector_errors)
     checks.append("optional-connector-schemas")
-    connector_configs = sorted((workspace / "config" / "connectors").glob("*.json"))
+    connector_configs = sorted(
+        path
+        for path in (workspace / "config" / "connectors").glob("*.json")
+        if not path.name.endswith("-sources.json")
+    )
 
     if transient_reason(workspace):
         warnings.append("workspace is under a transient directory (allowed only for explicit tests)")

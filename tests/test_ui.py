@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from memory_workspace import capture, home, profile, workspace
+from memory_workspace import capture, connectors, home, profile, workspace
 from memory_workspace.io import MemoryWorkspaceError
 from memory_workspace.ui_server import create_server
 
@@ -219,7 +219,26 @@ class LocalReviewInboxTests(unittest.TestCase):
             memory_home["workspaces"][0]["workspace_id"],
             "memory-workspace",
         )
+        self.assertEqual(memory_home["workspaces"][0]["project_memory"]["status"], "empty")
         self.assertNotIn("workspace_path", memory_home["workspaces"][0])
+
+        status, detail, _ = self.get("/api/workspaces/memory-workspace")
+        self.assertEqual(status, 200)
+        self.assertEqual(detail["project_memory"]["status"], "empty")
+        self.assertFalse(detail["project_memory"]["connector"]["enabled"])
+
+        connectors.enable_lark_connector("memory-workspace", root=self.workspaces_root)
+        connectors.map_lark_source(
+            "memory-workspace",
+            kind="chat",
+            external_id="oc_memory_workspace",
+            label="Memory Workspace 项目群",
+            root=self.workspaces_root,
+        )
+        _, connected_home, _ = self.get("/api/home")
+        project_status = connected_home["memory_home"]["workspaces"][0]["project_memory"]
+        self.assertTrue(project_status["lark_enabled"])
+        self.assertEqual(project_status["mapped_sources"], 1)
 
     def test_profile_reveal_and_single_update_require_token_and_read_back(self) -> None:
         profile.set_single(self.profile_path, "联系邮箱", "old@example.com")

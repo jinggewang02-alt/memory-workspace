@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from memory_workspace import connectors  # noqa: E402
+from memory_workspace import lark_sync  # noqa: E402
 from memory_workspace.io import MemoryWorkspaceError  # noqa: E402
 
 
@@ -57,6 +58,34 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--provider", default="lark")
     command.add_argument("--at")
     command.add_argument("--force", action="store_true")
+    add_json_flag(command)
+
+    command = sub.add_parser("map-chat", help="map one confirmed Lark chat to this Workspace")
+    command.add_argument("workspace_id")
+    command.add_argument("--chat-id", required=True)
+    command.add_argument("--label", required=True)
+    add_json_flag(command)
+
+    command = sub.add_parser("map-document", help="map one confirmed Lark document to this Workspace")
+    command.add_argument("workspace_id")
+    command.add_argument("--document-id", required=True)
+    command.add_argument("--doc", required=True, help="document URL or token used by lark-cli docs +fetch")
+    command.add_argument("--label", required=True)
+    add_json_flag(command)
+
+    command = sub.add_parser("sources", help="list explicitly mapped project sources")
+    command.add_argument("workspace_id")
+    add_json_flag(command)
+
+    command = sub.add_parser("sync", help="read only explicitly mapped Lark sources")
+    command.add_argument("workspace_id")
+    command.add_argument("--at")
+    command.add_argument("--force", action="store_true")
+    command.add_argument("--trigger", choices=("first_enable", "agent_start", "idle", "manual", "event_reconciliation"))
+    add_json_flag(command)
+
+    command = sub.add_parser("project-view", help="show the rebuildable project memory view without refreshing Lark")
+    command.add_argument("workspace_id")
     add_json_flag(command)
 
     command = sub.add_parser(
@@ -103,6 +132,37 @@ def run_command(args: argparse.Namespace) -> Any:
             now=args.at,
             force=args.force,
         )
+    if args.cmd == "map-chat":
+        return connectors.map_lark_source(
+            args.workspace_id,
+            kind="chat",
+            external_id=args.chat_id,
+            label=args.label,
+        )
+    if args.cmd == "map-document":
+        return connectors.map_lark_source(
+            args.workspace_id,
+            kind="document",
+            external_id=args.document_id,
+            locator=args.doc,
+            label=args.label,
+        )
+    if args.cmd == "sources":
+        return {
+            "workspace_id": args.workspace_id,
+            "provider": "lark",
+            "sources": connectors.list_connector_sources(args.workspace_id),
+            "external_read_performed": False,
+        }
+    if args.cmd == "sync":
+        return lark_sync.sync_lark_workspace(
+            args.workspace_id,
+            now=args.at,
+            force=args.force,
+            trigger=args.trigger,
+        )
+    if args.cmd == "project-view":
+        return lark_sync.load_project_memory(args.workspace_id)
     if args.cmd == "checkpoint":
         return connectors.record_sync_success(
             args.workspace_id,
@@ -136,6 +196,24 @@ def render_text(args: argparse.Namespace, result: Any) -> None:
         print(f"commands: {len(result['commands'])}")
         if result.get("reason"):
             print(f"reason: {result['reason']}")
+    elif args.cmd in {"map-chat", "map-document"}:
+        source = result["source"]
+        print(f"[connector] mapped {source['kind']}: {source['label']}")
+        print("external_read_performed: no")
+    elif args.cmd == "sources":
+        print(f"mapped_sources: {len(result['sources'])}")
+        for source in result["sources"]:
+            print(f"- {source['kind']}: {source['label']} ({source['external_id']})")
+    elif args.cmd == "sync":
+        print(f"status: {result['status']}")
+        print(f"mapped_sources: {result['mapped_sources']}")
+        if result.get("manifest_ref"):
+            print(f"manifest: {result['manifest_ref']}")
+    elif args.cmd == "project-view":
+        print(f"status: {result['status']}")
+        print(f"mapped_sources: {result['connector']['mapped_sources']}")
+        for section in ("updates", "decisions", "next_actions", "people", "artifacts"):
+            print(f"{section}: {len(result['sections'][section])}")
     elif args.cmd == "checkpoint":
         print(f"[connector] checkpoint updated: {result['checkpoint_path']}")
         print(f"next_due_at: {result['next_due_at']}")

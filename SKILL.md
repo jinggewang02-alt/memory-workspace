@@ -131,17 +131,24 @@ python3 <skill-dir>/scripts/connectors.py status <workspace-id> --provider lark 
 - 未配置或 `enabled=false`：停止 Lark 流程；不得探测 `lark-cli`、请求权限、登录或读取。
 - 只有用户明确要求把飞书作为该 Workspace 的证据源时，才可运行
   `connectors.py enable-lark <workspace-id> --json`。
-- 启用命令只写显式本地配置，不读取飞书。随后运行 `connectors.py plan` 获取有界计划；
-  `commands=[]` 时不得执行外部命令。
-- 计划为 `due` 时，只能使用 user identity、返回的时间窗、数量上限、字段和只读权限。
-  认证或 scope 不足时停止并报告准确边界，不得换账号或扩大读取范围。
+- 启用命令只写显式本地配置，不读取飞书。`connectors.py plan` 只生成可审阅的有界发现
+  计划；发现结果不能自动成为项目长期记忆。
+- 只有用户确认某个群聊或文档属于该项目后，才运行 `map-chat` 或 `map-document`。映射必须
+  写入该 Workspace 的 `lark-sources.json`，且 `sync_mode=direct_execution`。
+- 运行 `connectors.py sync <workspace-id> --json` 时，只读取这些已映射来源。不得把计划中的
+  活跃会话、搜索结果、直接消息或其他可见资源临时加入本次同步。
+- 同步只能使用 user identity、checkpoint 时间窗和只读命令。认证或 scope 不足时停止并
+  报告准确来源边界，不得换账号或扩大读取范围。
 - 每项原始结果先保存为不可变快照；只有快照存在且覆盖范围明确时才推进 checkpoint。
 - 外部人物、会话和文档先进入 Workspace Observation / Source；可另外提出带来源链接的
   Personal Work Candidate，但不得自动写入精确个人资料。
+- 同步后生成的 `project-memory.json` 是可重建的证据视图，不是已经确认的正式决策页；
+  “决策/下一步”只在原文有显式标记时归类，并始终保留 Source Note 回链。
 
 默认首次基线回看 30 天、最多选择 30 个活跃会话；每日增量从上次成功 checkpoint
-开始且默认至少间隔 24 小时。计划器当前不直接执行 `lark-cli`。完整命令、字段、bot
-事件限制和实现状态见 [references/lark-connector.md](references/lark-connector.md)。
+开始且默认至少间隔 24 小时。广泛发现仍是只读计划；项目同步执行器只处理已确认映射。
+完整命令、字段、bot 事件限制和实现状态见
+[references/lark-connector.md](references/lark-connector.md)。
 
 ## Workspace 工作流
 
@@ -206,6 +213,8 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 1. 用 `list` / `inspect` 解析 Workspace；先运行 `query <id> <关键词> --json`。
 2. `query` 会重建可丢弃索引。只读取命中结果对应的最小项目页和 Source Note；不要把
    整个索引或 Workspace 注入上下文。
+   若该 Workspace 启用了 Lark 项目来源，再运行
+   `connectors.py project-view <id> --json` 读取已保存的项目脉络；这不会刷新飞书。
 3. 回答先给结论；材料性事实指向对应 `[[sources/S-...]]`，并标明推断、用户观点、
    分歧或证据缺口。
 4. 若最终回答实际使用了查询返回的 Memory Home 内容，在回答最末尾追加一行简短的
@@ -214,8 +223,9 @@ Proposal 阶段只写 `.llm-wiki/operations/`，不修改正式 Wiki。`raw/` �
 5. 普通问题优先使用已有快照。只有用户要求当前信息，或旧快照会实质影响答案时，
    才进入连接器刷新流程。
 
-当前 CLI 已实现初始化、来源收录、审阅式 Wiki 文件变更、索引和本地查询。连接器刷新
-和自动 Claim 综合尚未实现；不要伪造这些命令，也不要绕开 Operation 审计。
+当前 CLI 已实现初始化、来源收录、审阅式 Wiki 文件变更、索引、本地查询，以及对已确认
+Lark 项目来源的只读刷新和可重建项目视图。自动 Claim 综合与正式项目页改写尚未实现；
+不要把项目视图冒充已确认 Wiki，也不要绕开 Operation 审计。
 详细命令契约见 [references/workspace-cli.md](references/workspace-cli.md)，证据和 UI
 边界见 [references/data-model.md](references/data-model.md)。
 

@@ -8,6 +8,7 @@ read plan.  A host must execute the plan and record a checkpoint separately.
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -20,6 +21,7 @@ from .schema import load_json_object, validate
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 CONNECTOR_SCHEMA = PACKAGE_ROOT / "schemas" / "connector-config.schema.json"
 CHECKPOINT_SCHEMA = PACKAGE_ROOT / "schemas" / "sync-checkpoint.schema.json"
+SOURCE_MAP_SCHEMA = PACKAGE_ROOT / "schemas" / "connector-source-map.schema.json"
 SUPPORTED_PROVIDERS = {"lark"}
 LARK_CONNECTOR_ID = "lark"
 LARK_REQUIRED_SCOPES = (
@@ -64,6 +66,10 @@ def _connector_path(workspace: Path, provider: str) -> Path:
 
 def _checkpoint_path(workspace: Path, provider: str) -> Path:
     return workspace / ".llm-wiki" / "connectors" / provider / "checkpoint.json"
+
+
+def _source_map_path(workspace: Path, provider: str) -> Path:
+    return workspace / "config" / "connectors" / f"{provider}-sources.json"
 
 
 def _validate_document(
@@ -135,6 +141,11 @@ def connector_status(
         CHECKPOINT_SCHEMA,
         label=f"{clean_provider} sync checkpoint",
     )
+    source_map = _load_document(
+        _source_map_path(workspace, clean_provider),
+        SOURCE_MAP_SCHEMA,
+        label=f"{clean_provider} connector source map",
+    )
     if config is None:
         return {
             "workspace_id": workspace_id,
@@ -145,6 +156,7 @@ def connector_status(
             "lark_cli_required": False,
             "config_path": str(config_path),
             "checkpoint": None,
+            "mapped_sources": 0,
             "boundary": (
                 "Connector 未由用户显式启用；不得探测 lark-cli、请求飞书权限或读取飞书数据。"
             ),
@@ -159,11 +171,104 @@ def connector_status(
         "config_path": str(config_path),
         "config": config,
         "checkpoint": checkpoint,
+        "mapped_sources": len(source_map["sources"]) if source_map else 0,
         "boundary": (
-            "Connector 已启用；只有 plan 返回 due 后，宿主才能按计划执行只读 lark-cli 命令。"
+            "Connector 已启用；发现计划仍不读取，sync 只能读取已明确映射的项目来源。"
             if config["enabled"]
             else "Connector 已停用；不得执行任何飞书读取。"
         ),
+    }
+
+
+def list_connector_sources(
+    workspace_id: str,
+    *,
+    provider: str = "lark",
+    root: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Return only sources explicitly mapped to this project Workspace."""
+
+    clean_provider = _validate_provider(provider)
+    workspace, _ = workspace_store.load_manifest(workspace_id, root=root)
+    document = _load_document(
+        _source_map_path(workspace, clean_provider),
+        SOURCE_MAP_SCHEMA,
+        label=f"{clean_provider} connector source map",
+    )
+    return list(document["sources"]) if document else []
+
+
+def map_lark_source(
+    workspace_id: str,
+    *,
+    kind: str,
+    external_id: str,
+    label: str,
+    locator: str | None = None,
+    root: Path | None = None,
+    now: str | datetime | None = None,
+) -> dict[str, Any]:
+    """Add one owner-confirmed Lark chat or document to a Workspace."""
+
+    clean_kind = kind.strip().lower()
+    if clean_kind not in {"chat", "document"}:
+        raise MemoryWorkspaceError("Lark 来源 kind 必须是 chat 或 document。")
+    clean_external_id = external_id.strip()
+    clean_label = " ".join(label.split())
+    clean_locator = (locator or external_id).strip()
+    if not clean_external_id or not clean_label or not clean_locator:
+        raise MemoryWorkspaceError("external_id、locator 和 label 均不能为空。")
+    state = connector_status(workspace_id, root=root)
+    if not state["enabled"]:
+        raise MemoryWorkspaceError("请先显式启用 Lark Connector，再映射项目来源。")
+    workspace, _ = workspace_store.load_manifest(workspace_id, root=root)
+    path = _source_map_path(workspace, "lark")
+    existing = _load_document(path, SOURCE_MAP_SCHEMA, label="lark connector source map")
+    timestamp = _format_datetime(_parse_datetime(now or _now()))
+    document = existing or {
+        "schema_version": 1,
+        "provider": "lark",
+        "workspace_id": workspace_id,
+        "sources": [],
+        "updated_at": timestamp,
+    }
+    stable = hashlib.sha256(f"{clean_kind}:{clean_external_id}".encode()).hexdigest()[:12]
+    source_id = f"lark-{clean_kind}-{stable}"
+    source = {
+        "source_id": source_id,
+        "kind": clean_kind,
+        "external_id": clean_external_id,
+        "locator": clean_locator,
+        "label": clean_label,
+        "enabled": True,
+        "sync_mode": "direct_execution",
+        "added_at": timestamp,
+    }
+    replaced = False
+    for index, item in enumerate(document["sources"]):
+        if item["source_id"] == source_id:
+            source["added_at"] = item["added_at"]
+            document["sources"][index] = source
+            replaced = True
+            break
+    if not replaced:
+        document["sources"].append(source)
+    document["sources"].sort(key=lambda item: item["source_id"])
+    document["updated_at"] = timestamp
+    _validate_document(document, SOURCE_MAP_SCHEMA, label="lark connector source map")
+    atomic_write_json(
+        path,
+        document,
+        backup=existing is not None,
+        allow_transient=workspace_store.allow_transient(),
+    )
+    return {
+        "workspace_id": workspace_id,
+        "provider": "lark",
+        "source": source,
+        "changed": not replaced,
+        "source_map_path": str(path),
+        "external_read_performed": False,
     }
 
 
@@ -252,7 +357,7 @@ def enable_lark_connector(
         "enabled": True,
         "config_path": str(path),
         "external_read_performed": False,
-        "next_action": "Run connectors.py plan to review the bounded read plan.",
+        "next_action": "Map confirmed project chats/documents, then run connectors.py sync.",
     }
 
 
@@ -658,7 +763,9 @@ def validate_workspace_connector_files(
     errors: list[str] = []
     config_dir = workspace / "config" / "connectors"
     if config_dir.is_dir():
-        for path in sorted(config_dir.glob("*.json")):
+        for path in sorted(
+            item for item in config_dir.glob("*.json") if not item.name.endswith("-sources.json")
+        ):
             try:
                 document = _load_document(
                     path, CONNECTOR_SCHEMA, label=f"connector config {path.name}"
@@ -671,6 +778,18 @@ def validate_workspace_connector_files(
                     errors.append(f"{path.relative_to(workspace)}: provider/file mismatch")
             except MemoryWorkspaceError as exc:
                 errors.append(f"{path.relative_to(workspace)}: {exc}")
+        source_map = config_dir / "lark-sources.json"
+        if source_map.is_file():
+            try:
+                document = _load_document(
+                    source_map, SOURCE_MAP_SCHEMA, label="lark connector source map"
+                )
+                if document and document["workspace_id"] != workspace_id:
+                    errors.append(
+                        f"{source_map.relative_to(workspace)}: workspace_id mismatch"
+                    )
+            except MemoryWorkspaceError as exc:
+                errors.append(f"{source_map.relative_to(workspace)}: {exc}")
     checkpoint_root = workspace / ".llm-wiki" / "connectors"
     if checkpoint_root.is_dir():
         for path in sorted(checkpoint_root.glob("*/checkpoint.json")):
