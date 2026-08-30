@@ -15,8 +15,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from memory_workspace import connectors  # noqa: E402
-from memory_workspace import lark_sync  # noqa: E402
+from memory_workspace import project_memory  # noqa: E402
 from memory_workspace.io import MemoryWorkspaceError  # noqa: E402
+from memory_workspace.providers.lark import sync_lark_workspace  # noqa: E402
 
 
 def add_json_flag(parser: argparse.ArgumentParser) -> None:
@@ -155,14 +156,14 @@ def run_command(args: argparse.Namespace) -> Any:
             "external_read_performed": False,
         }
     if args.cmd == "sync":
-        return lark_sync.sync_lark_workspace(
+        return sync_lark_workspace(
             args.workspace_id,
             now=args.at,
             force=args.force,
             trigger=args.trigger,
         )
     if args.cmd == "project-view":
-        return lark_sync.load_project_memory(args.workspace_id)
+        return project_memory.load_project_memory(args.workspace_id)
     if args.cmd == "checkpoint":
         return connectors.record_sync_success(
             args.workspace_id,

@@ -58,7 +58,7 @@ Home and Personal Memory:
 Workspace overview:
 
 1. list the Workspaces already registered under this Home;
-2. show each Workspace's health, source count, mapped Lark source count, and last sync;
+2. show each Workspace's health, source count, mapped external-source count, and last sync;
 3. load `GET /api/workspaces/<id>` to display the rebuildable Project Memory view;
 4. show recent evidence excerpts, explicit decision/action markers, observed people,
    artifacts, and Source Note references;

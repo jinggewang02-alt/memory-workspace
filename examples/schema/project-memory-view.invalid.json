@@ -4,10 +4,10 @@
   "generated_at": null,
   "status": "canonical",
   "notice": "错误示例",
-  "connector": {
+  "connectors": [{
     "provider": "lark", "configured": false, "enabled": false,
     "mapped_sources": 0, "last_success_at": null, "coverage_end": null
-  },
+  }],
   "sections": {"updates": [], "decisions": [], "next_actions": [], "people": [], "artifacts": []},
   "sources": []
 }

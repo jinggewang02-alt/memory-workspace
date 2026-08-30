@@ -225,7 +225,7 @@ class LocalReviewInboxTests(unittest.TestCase):
         status, detail, _ = self.get("/api/workspaces/memory-workspace")
         self.assertEqual(status, 200)
         self.assertEqual(detail["project_memory"]["status"], "empty")
-        self.assertFalse(detail["project_memory"]["connector"]["enabled"])
+        self.assertEqual(detail["project_memory"]["connectors"], [])
 
         connectors.enable_lark_connector("memory-workspace", root=self.workspaces_root)
         connectors.map_lark_source(
@@ -237,7 +237,8 @@ class LocalReviewInboxTests(unittest.TestCase):
         )
         _, connected_home, _ = self.get("/api/home")
         project_status = connected_home["memory_home"]["workspaces"][0]["project_memory"]
-        self.assertTrue(project_status["lark_enabled"])
+        self.assertEqual(project_status["connector_count"], 1)
+        self.assertEqual(project_status["enabled_connectors"], 1)
         self.assertEqual(project_status["mapped_sources"], 1)
 
     def test_profile_reveal_and_single_update_require_token_and_read_back(self) -> None:

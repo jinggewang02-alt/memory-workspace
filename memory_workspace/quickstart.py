@@ -128,7 +128,11 @@ def prepare(
             "available": bool(history_access.get("available")),
             "error": learning.get("error"),
         },
-        "external_connectors": {"lark": "disabled_by_default"},
+        "external_connectors": {
+            "status": "optional",
+            "enabled": [],
+            "message": "Base Memory Home is ready; provider adapters are opt-in.",
+        },
         "capture": capture_check,
         "memory_behavior": {
             "explicit_save": "direct_with_readback",

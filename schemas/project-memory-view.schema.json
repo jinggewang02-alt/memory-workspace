@@ -4,7 +4,7 @@
   "title": "Rebuildable project memory read model",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "workspace", "generated_at", "status", "notice", "connector", "sections", "sources"],
+  "required": ["schema_version", "workspace", "generated_at", "status", "notice", "connectors", "sections", "sources"],
   "properties": {
     "schema_version": {"const": 1},
     "workspace": {
@@ -15,14 +15,7 @@
     "generated_at": {"type": ["string", "null"]},
     "status": {"enum": ["empty", "ready"]},
     "notice": {"type": "string", "minLength": 1},
-    "connector": {
-      "type": "object", "additionalProperties": false,
-      "required": ["provider", "configured", "enabled", "mapped_sources", "last_success_at", "coverage_end"],
-      "properties": {
-        "provider": {"const": "lark"}, "configured": {"type": "boolean"}, "enabled": {"type": "boolean"},
-        "mapped_sources": {"type": "integer"}, "last_success_at": {"type": ["string", "null"]}, "coverage_end": {"type": ["string", "null"]}
-      }
-    },
+    "connectors": {"type": "array", "items": {"$ref": "#/$defs/connector"}},
     "sections": {
       "type": "object", "additionalProperties": false,
       "required": ["updates", "decisions", "next_actions", "people", "artifacts"],
@@ -42,17 +35,28 @@
         "text": {"type": "string", "minLength": 1}, "occurred_at": {"type": ["string", "null"]},
         "classification": {"enum": ["source_excerpt", "explicit_marker", "observed_actor", "artifact_metadata"]},
         "source_id": {"type": "string", "minLength": 1}, "source_note": {"type": "string", "pattern": "^wiki/sources/S-[0-9]+\\.md$"},
-        "snapshot_ref": {"type": "string", "pattern": "^connected/lark/"}
+        "snapshot_ref": {"type": "string", "pattern": "^connected/"}
+      }
+    },
+    "connector": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider", "configured", "enabled", "mapped_sources", "last_success_at", "coverage_end"],
+      "properties": {
+        "provider": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "configured": {"type": "boolean"}, "enabled": {"type": "boolean"},
+        "mapped_sources": {"type": "integer"}, "last_success_at": {"type": ["string", "null"]}, "coverage_end": {"type": ["string", "null"]}
       }
     },
     "source": {
       "type": "object", "additionalProperties": false,
-      "required": ["source_id", "kind", "label", "external_id", "source_note", "latest_snapshot_ref", "captured_at"],
+      "required": ["source_id", "provider", "kind", "label", "external_id", "source_note", "latest_snapshot_ref", "captured_at"],
       "properties": {
-        "source_id": {"type": "string", "minLength": 1}, "kind": {"enum": ["chat", "document"]},
+        "source_id": {"type": "string", "minLength": 1},
+        "provider": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "kind": {"type": "string", "minLength": 1},
         "label": {"type": "string", "minLength": 1}, "external_id": {"type": "string", "minLength": 1},
         "source_note": {"type": "string", "pattern": "^wiki/sources/S-[0-9]+\\.md$"},
-        "latest_snapshot_ref": {"type": "string", "pattern": "^connected/lark/"}, "captured_at": {"type": "string", "format": "date-time"}
+        "latest_snapshot_ref": {"type": "string", "pattern": "^connected/"}, "captured_at": {"type": "string", "format": "date-time"}
       }
     }
   }

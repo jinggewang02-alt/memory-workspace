@@ -18,10 +18,10 @@ from . import (
     habits,
     home,
     home_view,
-    lark_sync,
     onboarding,
     policy,
     profile,
+    project_memory,
     workspace,
     writer,
 )
@@ -411,7 +411,7 @@ def build_handler(
                     return
                 workspace_match = WORKSPACE_DETAIL_RE.fullmatch(target.path)
                 if workspace_match:
-                    detail = lark_sync.load_project_memory(
+                    detail = project_memory.load_project_memory(
                         workspace_match.group("workspace_id"), root=workspaces_root
                     )
                     self._send_json({"ok": True, "project_memory": detail})

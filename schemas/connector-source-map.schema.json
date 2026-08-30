@@ -7,7 +7,7 @@
   "required": ["schema_version", "provider", "workspace_id", "sources", "updated_at"],
   "properties": {
     "schema_version": {"const": 1},
-    "provider": {"const": "lark"},
+    "provider": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
     "workspace_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
     "sources": {
       "type": "array",
@@ -16,8 +16,8 @@
         "additionalProperties": false,
         "required": ["source_id", "kind", "external_id", "locator", "label", "enabled", "sync_mode", "added_at"],
         "properties": {
-          "source_id": {"type": "string", "pattern": "^lark-(chat|document)-[a-f0-9]{12}$"},
-          "kind": {"enum": ["chat", "document"]},
+          "source_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+          "kind": {"type": "string", "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"},
           "external_id": {"type": "string", "minLength": 1},
           "locator": {"type": "string", "minLength": 1},
           "label": {"type": "string", "minLength": 1},

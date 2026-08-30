@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "provider": "local-notes",
+  "workspace_id": "product-memory",
+  "captured_at": "2026-08-30T02:00:00Z",
+  "trigger": "manual",
+  "time_coverage": {
+    "start": "2026-08-29T02:00:00Z",
+    "end": "2026-08-30T02:00:00Z"
+  },
+  "complete": true,
+  "snapshots": [
+    {
+      "source_id": "local-notes-project-log",
+      "kind": "document",
+      "external_id": "project-log",
+      "label": "Project Log",
+      "command_category": "local_file_read",
+      "snapshot_ref": "connected/local-notes/snapshots/document/local-notes-project-log/2026-08-30T020000Z.json",
+      "result_count": 1,
+      "content_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "limitations": []
+}

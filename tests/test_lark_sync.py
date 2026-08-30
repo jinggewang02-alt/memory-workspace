@@ -122,7 +122,7 @@ class SyntheticLarkProjectSyncTests(unittest.TestCase):
 
         project = lark_sync.load_project_memory("launch", root=self.root)
         self.assertEqual(project["status"], "ready")
-        self.assertEqual(project["connector"]["mapped_sources"], 2)
+        self.assertEqual(project["connectors"][0]["mapped_sources"], 2)
         self.assertIn("决策", project["sections"]["decisions"][0]["text"])
         self.assertIn("下一步", project["sections"]["next_actions"][0]["text"])
         self.assertEqual(

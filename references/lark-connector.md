@@ -1,9 +1,9 @@
 # Lark Connector：项目级只读证据链
 
-Status: Implemented v0.2
-Updated: 2026-08-29
+Status: Implemented adapter v0.3
+Updated: 2026-08-30
 
-Lark Connector 是 Memory Workspace 的可选能力。默认关闭；非飞书用户不会看到认证、
+Lark Connector 是 Memory Core 之外的可选 Provider Skill / Adapter。默认关闭；非飞书用户不会看到认证、
 权限请求或数据读取。它把“发现可能相关资源”和“同步一个项目已确认的来源”分成两条
 边界，避免把用户可见的所有聊天与文档一股脑写进项目记忆。
 
@@ -27,7 +27,7 @@ python3 scripts/connectors.py project-view <workspace-id> --json
 同步成功后会产生：
 
 ```text
-connected/lark/chats|docs/.../<timestamp>.json       完整、不可变的 lark-cli 返回
+connected/lark/snapshots/<kind>/.../<timestamp>.json 完整、不可变的 lark-cli 返回
 connected/lark/observations/<timestamp>-<id>.jsonl  统一 Observation
 connected/lark/manifests/<timestamp>-<id>.json      本次覆盖与快照清单
 wiki/sources/S-xxx.md                               可引用的 Source Note
@@ -77,7 +77,7 @@ Agent 不能根据安装了本 Skill、发现 `lark-cli`、用户提到“飞书
 | Source Map | `connector-source-map.schema.json` | Workspace 与确认群聊/文档的一对多关系 |
 | Raw Snapshot | 原始 JSON | 完整保留一次 lark-cli 返回，不覆盖 |
 | Observation | `external-observation.schema.json` | 消息/文档、参与者、内容摘要、来源与项目路由 |
-| Sync Manifest | `lark-sync-manifest.schema.json` | 本次覆盖、结果数、哈希、快照与限制 |
+| Sync Manifest | `sync-manifest.schema.json` | Core 统一记录本次覆盖、结果数、哈希、快照与限制 |
 | Checkpoint | `sync-checkpoint.schema.json` | 最近一次完整成功的增量起点 |
 | Project View | `project-memory-view.schema.json` | UI/Agent 可读取的可重建项目脉络 |
 
@@ -97,9 +97,9 @@ Project View 目前做保守编译：
 
 ## 5. 成功、失败与 checkpoint
 
-同步器先完成所有已映射来源的命令读取，再开始落盘，避免某个 scope 失败时留下被误认为
-完整的本次同步。保存原始快照、Observation 和 manifest 后才推进 checkpoint；Project
-View 随后由这些证据重建。
+Lark Adapter 先完成所有已映射来源的命令读取，再向 Core 提交标准 Sync Bundle，避免某个
+scope 失败时留下被误认为完整的本次同步。Adapter 只负责 `lark-cli` 命令与字段翻译；Core
+保存原始快照、Observation 和 manifest 后才推进 checkpoint，并由这些证据重建 Project View。
 
 原始文件使用 create-once 写入，路径冲突会拒绝覆盖。Source Note 是可更新的来源目录，
 会指向该来源最新快照并保存内容哈希。来源范围内没有记录，不能推出事件没有发生。

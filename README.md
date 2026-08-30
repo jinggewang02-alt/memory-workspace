@@ -12,7 +12,7 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - 哪些个人资料需要跨项目精确召回；
 - 用户通常在什么情况下希望 Agent 记录，什么情况下不希望被打扰。
 
-> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地 Memory Home UI。对于飞书项目，还能把用户明确确认的群聊与文档通过只读 `lark-cli` 保存为不可变证据，并生成带来源回链的项目脉络视图。Personal Work 的跨项目自动维护与更深入的语义综合仍在迭代中，详见 [Roadmap](#roadmap)。
+> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地 Memory Home UI。架构分成独立的 Memory Core 与可选 Provider Adapter：不连接任何外部生态也能完整使用；飞书只是当前附带的第一个适配器。Personal Work 的跨项目自动维护与更深入的语义综合仍在迭代中，详见 [Roadmap](#roadmap)。
 
 ## 它如何工作
 
@@ -44,6 +44,17 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 | Workspaces | 项目来源、上下文、决策、执行与 Wiki | 材料事实需要链接到来源；推断和事实分开 |
 | System | Capture、Candidate、Operation、索引和 Connector 状态 | 运行状态不是长期知识；批准后才写入正式记忆 |
 
+### 两个互不绑死的产品层
+
+| 层 | 负责 | 不负责 |
+| --- | --- | --- |
+| Memory Core | Personal / Workspace / System、统一数据协议、不可变证据、项目脉络编译、审阅 UI | 不登录外部账号，不包含某个平台的命令和字段判断 |
+| Provider Adapter | 显式启用、最小权限、来源映射、外部只读获取、字段标准化 | 不直接改写 Personal Memory、正式 Wiki 或 UI 私有结构 |
+
+Provider Adapter 只向 Core 交付标准 Sync Bundle。之后的快照落盘、Source Note、
+Observation、manifest、checkpoint 和 `project-memory.json` 都由 Core 统一生成。因而没有安装
+飞书适配器的用户不会遇到飞书认证或文案，未来其他生态也可以复用同一条数据链路。
+
 ## 当前已经实现
 
 - **本地能力探测**：检查 Python、持久目录、读写权限和可用历史入口，返回明确的准备状态。
@@ -55,7 +66,8 @@ Memory Workspace 不是一个需要长期在线的云服务。用户把它下载
 - **本地 Memory Home UI**：在一个入口查看 Personal Memory、Workspace、习惯报告和候选记忆；精确资料值默认隐藏，单值修改会写入并逐字回读。
 - **协议与 JSON Schema**：事件、候选、决策、应用回执、策略、Workspace 和索引均有可验证的数据结构。
 - **统一 Memory Home**：默认在 `~/.memory-home/` 下并列保存 Personal、Workspaces 和 System；旧目录可先预览、再只复制迁移。
-- **项目级 Lark 证据链**：只有用户明确启用并映射项目来源后，才执行只读 `lark-cli`；完整返回保存为不可变快照，再规范化为 Observation、来源笔记和可重建项目视图。
+- **Provider-neutral 项目记忆链**：任意适配器交付标准 Sync Bundle 后，由 Core 统一保存不可变快照、Observation、来源笔记、checkpoint 和可重建项目视图。
+- **可选 Lark Provider**：独立 Skill 与适配器封装 `lark-cli`、飞书权限和字段；只有用户明确启用并映射项目来源后才执行只读获取。
 - **项目详情 UI**：Workspace 卡片可展开近期进展、明确标记的决策、下一步、参与者、产物、同步时间和证据来源。
 
 ## 5 分钟开始使用
@@ -76,7 +88,7 @@ Agent 应先找到环境中实际可用的 Python 3.10+ 启动器，再执行这
 缺少条件时，命令会停在写入前，并明确返回
 `NEEDS_RUNTIME`、`NEEDS_PERSISTENT_PATH`、`NEEDS_PERMISSION` 或 `UNSUPPORTED`。
 
-返回 `READY` 后，基础能力已经可用。此时没有历史来源、没有 Workspace、没有启用飞书，
+返回 `READY` 后，基础能力已经可用。此时没有历史来源、没有 Workspace、没有启用外部连接器，
 都属于正常的可选状态，不是安装失败。如果当前 Agent 已经通过标准适配器显式交付了
 授权历史，一键准备会自动执行一次有界的近 30 天学习，并停在 `awaiting_review` 等待确认。
 历史文件损坏或不符合协议时只标记为 `needs_attention`，不会撤销已经完成的基础初始化。
@@ -117,10 +129,10 @@ python3 scripts/capture.py onboarding confirm
 
 Memory Workspace 不会静默搜索其他账号、扩大读取范围或绕过平台权限。
 
-### 按需启用飞书
+### 按需增加 Provider：以飞书为例
 
-只有用户明确希望把飞书作为某个 Workspace 的项目证据源时，才单独启用 Lark
-Connector：
+基础 Memory Core 不依赖飞书。只有用户明确希望把飞书作为某个 Workspace 的项目证据源时，
+才加载 `skills/lark-project-memory/` 并启用 Lark Provider：
 
 ```bash
 python3 scripts/connectors.py status my-workspace --provider lark --json
@@ -138,8 +150,8 @@ python3 scripts/connectors.py project-view my-workspace --json
 checkpoint。详见
 [Lark Connector](references/lark-connector.md)。
 
-以后 Agent 需要回忆项目时，可先读取 `project-view`；这个命令只读本地已保存证据，不会
-因为一次普通问题触发飞书网络请求。
+以后 Agent 需要回忆项目时，可先读取 `project-view`；这是 Core 生成的通用本地视图，
+不会因为一次普通问题触发任何外部网络请求。
 
 ### 已初始化时单独打开 UI
 
@@ -190,7 +202,8 @@ python3 scripts/home.py migrate --json
 - 以明确授权的方式提供历史或实时 Query；
 - 按 JSON Schema 读写事件和审阅结果；
 
-就可以接入同一套数据协议。平台适配器负责把各自的输入规范化为统一事件；Workspace、策略和 UI 不感知具体平台名称。
+就可以接入同一套数据协议。Provider Adapter 负责把各自的输入规范化为 Sync Bundle 与
+Observation；Workspace、策略和 UI 不感知具体平台名称，Core 也不导入 Provider 代码。
 
 适配器协议见 [references/adapter-contract.md](references/adapter-contract.md)，运行环境约定见 [references/runtime-capabilities.md](references/runtime-capabilities.md)。目前已提供通用历史文件交接方式，以及 Lark 的显式配置、来源映射、只读执行、不可变快照、Observation、checkpoint 和项目视图协议；其他外部系统仍属于扩展接口。
 
@@ -210,11 +223,12 @@ python3 scripts/home.py migrate --json
 ```text
 memory-workspace/
 ├── SKILL.md                 # Agent 使用入口与行为边界
-├── memory_workspace/        # Python 核心实现
+├── memory_workspace/        # Python Core；providers/ 下是可选适配器
+├── skills/                  # 独立 Provider Skill（当前含 Lark）
 ├── scripts/                 # Workspace、记忆、Capture、UI 等 CLI
 ├── ui/                      # 本地 Memory Home 管理界面
 ├── schemas/                 # 协议 JSON Schema
-├── adapters/                # Agent / 平台适配层
+├── adapters/                # Agent 宿主适配层
 ├── references/              # 数据模型、工作流与协议说明
 ├── examples/schema/         # 协议的有效与无效样例
 └── tests/                   # 单元与链路测试

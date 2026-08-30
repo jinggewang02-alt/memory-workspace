@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import connectors, home, profile, workspace
+from . import connector_protocol, home, profile, workspace
 from .io import MemoryWorkspaceError
 from .memory_refs import personal_profile_reference
 from .schema import load_json_object, validate
@@ -154,7 +154,17 @@ def _workspace_snapshot(root: Path | None) -> list[dict[str, Any]]:
         if not item.get("error"):
             inspection = workspace.inspect_workspace(workspace_id, root=root)
             summary["counts"] = inspection["counts"]
-            connector = connectors.connector_status(workspace_id, root=root)
+            connector_summaries = connector_protocol.list_connector_summaries(
+                workspace_id, root=root
+            )
+            enabled_connectors = [
+                item for item in connector_summaries if item["enabled"]
+            ]
+            last_sync_values = [
+                str(item["last_success_at"])
+                for item in connector_summaries
+                if item.get("last_success_at")
+            ]
             summary["project_memory"] = {
                 "status": (
                     "ready"
@@ -162,14 +172,18 @@ def _workspace_snapshot(root: Path | None) -> list[dict[str, Any]]:
                     and (Path(inspection["index"]["path"]).parent / "project-memory.json").is_file()
                     else "empty"
                 ),
-                "lark_enabled": connector["enabled"],
-                "mapped_sources": connector["mapped_sources"],
-                "last_sync_at": connector["checkpoint"]["last_success_at"] if connector["checkpoint"] else None,
+                "connector_count": len(connector_summaries),
+                "enabled_connectors": len(enabled_connectors),
+                "mapped_sources": sum(
+                    int(item["mapped_sources"]) for item in connector_summaries
+                ),
+                "last_sync_at": max(last_sync_values) if last_sync_values else None,
             }
         else:
             summary["project_memory"] = {
                 "status": "empty",
-                "lark_enabled": False,
+                "connector_count": 0,
+                "enabled_connectors": 0,
                 "mapped_sources": 0,
                 "last_sync_at": None,
             }

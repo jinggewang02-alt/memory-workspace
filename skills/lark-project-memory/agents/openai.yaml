@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lark Project Memory"
+  short_description: "把确认的飞书来源同步为可回溯项目记忆"
+  default_prompt: "Use $lark-project-memory to connect only explicitly confirmed Lark sources to a Memory Home Workspace."

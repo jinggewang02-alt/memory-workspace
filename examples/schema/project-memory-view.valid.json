@@ -4,10 +4,10 @@
   "generated_at": "2026-08-29T02:00:00Z",
   "status": "ready",
   "notice": "由项目证据生成的可重建视图。",
-  "connector": {
+  "connectors": [{
     "provider": "lark", "configured": true, "enabled": true,
     "mapped_sources": 1, "last_success_at": "2026-08-29T02:00:00Z", "coverage_end": "2026-08-29T02:00:00Z"
-  },
+  }],
   "sections": {
     "updates": [],
     "decisions": [
@@ -27,6 +27,7 @@
   "sources": [
     {
       "source_id": "lark-chat-012345abcdef",
+      "provider": "lark",
       "kind": "chat",
       "label": "项目执行群",
       "external_id": "oc_project",

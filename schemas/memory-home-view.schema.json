@@ -143,10 +143,11 @@
         "project_memory": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status", "lark_enabled", "mapped_sources", "last_sync_at"],
+          "required": ["status", "connector_count", "enabled_connectors", "mapped_sources", "last_sync_at"],
           "properties": {
             "status": {"enum": ["empty", "ready"]},
-            "lark_enabled": {"type": "boolean"},
+            "connector_count": {"type": "integer", "minimum": 0},
+            "enabled_connectors": {"type": "integer", "minimum": 0},
             "mapped_sources": {"type": "integer"},
             "last_sync_at": {"type": ["string", "null"]}
           }

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from memory_workspace.bootstrap import build_report, exit_code
+from memory_workspace.bootstrap import REQUIRED_RESOURCES, build_report, exit_code
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +31,11 @@ def probe(*, writable: bool = True, transient: bool = False):
 
 
 class BootstrapTests(unittest.TestCase):
+    def test_base_readiness_does_not_require_the_optional_lark_provider(self) -> None:
+        self.assertFalse(
+            any("lark" in resource or "providers/" in resource for resource in REQUIRED_RESOURCES)
+        )
+
     def test_ready_report_is_capability_based(self) -> None:
         report = build_report(
             ROOT,

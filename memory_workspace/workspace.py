@@ -562,7 +562,7 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
         if isinstance(content_path, str):
             raw_path = (workspace / content_path).resolve(strict=False)
             kind = str(metadata.get("kind") or "")
-            allowed_root = workspace / ("connected/lark" if kind.startswith("lark_") else "raw")
+            allowed_root = workspace / ("connected" if kind.startswith("connector_") else "raw")
             if not is_within(raw_path, allowed_root.resolve(strict=False)):
                 errors.append(
                     f"{note.relative_to(workspace)}: source path escapes {allowed_root.relative_to(workspace)}/: {content_path}"
@@ -622,7 +622,7 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
     project_memory = workspace / ".llm-wiki" / "index" / "project-memory.json"
     if project_memory.is_file():
         try:
-            from .lark_sync import PROJECT_VIEW_SCHEMA
+            from .project_memory import PROJECT_VIEW_SCHEMA
 
             view_errors = validate(load_json_object(project_memory), load_json_object(PROJECT_VIEW_SCHEMA))
             errors.extend(f"project-memory: {error}" for error in view_errors)
@@ -630,9 +630,9 @@ def check_workspace(slug: str, *, root: Path | None = None) -> dict[str, Any]:
             errors.append(f"project-memory: {exc}")
     checks.append("project-memory-schema")
 
-    from .connectors import validate_workspace_connector_files
+    from .connector_protocol import validate_connector_files
 
-    connector_errors = validate_workspace_connector_files(workspace, slug)
+    connector_errors = validate_connector_files(workspace, slug)
     errors.extend(f"connector: {error}" for error in connector_errors)
     checks.append("optional-connector-schemas")
     connector_configs = sorted(

@@ -1,10 +1,20 @@
 # Adapter Contract（适配器契约）
 
-Status: Implemented core v0.4
-Updated: 2026-08-29
+Status: Implemented core v0.5
+Updated: 2026-08-30
 
-本文档定义“通用记忆内核 + 可选领域连接器”的边界。连接器负责发现外部证据，内核
-负责解析、候选、审阅和正式写入。安装 Memory Workspace 本身不等于启用任何外部连接器。
+本文档定义“通用 Memory Core + 可选 Provider Adapter”的单向依赖边界。Adapter 负责
+外部认证、命令、分页和字段标准化；Core 负责证据持久化、项目脉络、候选、审阅和正式
+写入。Core 不导入任何 Provider，安装 Memory Workspace 本身也不等于启用外部连接器。
+
+```text
+Provider Skill / Adapter
+  外部授权 → 有界读取 → 字段标准化
+                         │ Sync Bundle
+                         ▼
+Memory Core
+  immutable snapshot → Source Note → Observation → checkpoint → Project View / UI
+```
 
 ## 1. 两条独立输入链路
 
@@ -43,7 +53,12 @@ Updated: 2026-08-29
 - 连接器只使用配置中声明的身份、范围、窗口和限额；权限不足时停止，不能扩大范围变通；
 - 停用保留审计记录和既有快照，但禁止后续外部读取。
 
-当前实现只支持显式启用的 `lark` provider。其他生态可以复用此契约，但不能被当作已经实现。
+Core 的 `connector-config.schema.json` 只校验共同字段；每个 Provider 可以在自己的包内维护
+更严格的配置 Schema。当前 Lark Adapter 的时间窗、会话上限、identity 和能力枚举由
+`memory_workspace/providers/lark/schemas/connector-config.schema.json` 继续约束。
+
+当前附带的执行适配器只有 `lark` provider。Core 已通过非 Lark 的 synthetic provider
+链路测试；这证明协议不依赖飞书，不代表其他真实生态的认证与读取已实现。
 
 ## 3. 连接器能力
 
@@ -55,10 +70,20 @@ Updated: 2026-08-29
 | `incremental` | 快照与 Observation | 从最近成功 checkpoint 到当前时间读取增量 |
 | `event acceleration` | 提醒或待核对事件 | 可选加速器；不能代替每日 user-identity 对账 |
 
-`scripts/connectors.py plan` 只生成结构化发现计划，不执行外部命令。Lark 的项目同步由
-`sync` 执行，但它只接受 `lark-sources.json` 中由用户确认且
-`sync_mode=direct_execution` 的来源；发现清单不能直接喂给同步器。同步器负责顺序执行、
-完整快照、Observation、Source Note、manifest、checkpoint 和项目只读视图。
+每个 Adapter 只能读取自己的 Source Map，并将结果转换成标准 Sync Bundle。Bundle 至少包含：
+
+- `provider / connector_id / captured_at / trigger / coverage`；
+- 每个已确认来源的 `source`、建议 `snapshot_ref`、命令类别、结果数和原始 bytes；
+- 符合 `external-observation.schema.json` 的 Observation；
+- 认证、权限、分页和覆盖限制。
+
+Adapter 不直接写 Source Note、checkpoint 或 Project View。Core 在完整校验本批 Bundle 后，
+统一执行 create-once 快照、通用 manifest、Source Note、checkpoint 和项目视图编译。任一外部
+读取失败时，Adapter 不提交 Bundle，因此 Core 不会留下半成功批次。
+
+`scripts/connectors.py plan` 是当前 Lark Adapter 的结构化发现计划，不执行外部命令。Lark
+`sync` 只接受 Source Map 中由用户确认且 `sync_mode=direct_execution` 的来源；发现清单不能
+直接喂给同步器。
 
 ## 4. 统一 Observation
 
@@ -109,11 +134,12 @@ Exact Profile 的逐字写入流程。
 
 ## 6. 内核与 UI 边界
 
-- 连接器：只读发现、快照、规范化 Observation。
+- Provider Adapter：显式授权、只读发现/获取、原始结果交接、规范化 Observation。
+- Memory Core：不可变快照、Source Note、manifest、checkpoint 和 provider-neutral 读模型。
 - Resolver / Compiler：当前先把已确认来源中的活动、显式决策/下一步标记、人物和文档生成
   可重建项目视图；更深入的语义综合仍需 Candidate 审阅。
 - Candidate：给出 proposed patch、证据引用、原因码和新颖性。
-- UI：展示连接器状态、最近覆盖、项目脉络和来源回链，并捕获批准/拒绝意图。
+- UI：只按通用 provider、kind、覆盖和来源字段展示项目脉络，并捕获批准/拒绝意图。
 - Writer：唯一可以在批准后改写正式 Workspace 或 Personal Memory 的组件。
 
 ## 7. 非目标

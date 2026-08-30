@@ -347,15 +347,15 @@ function renderWorkspaces(items) {
         "p",
         "",
         memory.mapped_sources
-          ? memory.mapped_sources + " 个已确认飞书来源 · " + item.counts.sources + " 份证据"
-          : item.counts.sources + " 个来源 · 尚未连接项目飞书来源",
+          ? memory.mapped_sources + " 个已确认外部来源 · " + item.counts.sources + " 份证据"
+          : item.counts.sources + " 个本地来源 · 尚未添加外部来源",
       ),
       element(
         "span",
         "workspace-status",
         memory.status === "ready"
           ? "项目脉络已生成 · " + formatDate(memory.last_sync_at)
-          : memory.lark_enabled ? "等待映射或同步" : "可按需连接 Lark",
+          : memory.enabled_connectors ? "等待映射或同步" : "可按需添加连接器",
       ),
     );
     card.addEventListener("click", () => loadWorkspaceDetail(item.workspace_id));
@@ -396,10 +396,18 @@ function renderWorkspaceDetail(view) {
     element("h3", "", view.workspace.name),
     element("p", "", view.notice),
   );
+  const mappedSources = view.connectors.reduce((total, item) => total + item.mapped_sources, 0);
+  const lastSuccessValues = view.connectors
+    .map((item) => item.last_success_at)
+    .filter(Boolean)
+    .sort();
+  const lastSuccessAt = lastSuccessValues.length
+    ? lastSuccessValues[lastSuccessValues.length - 1]
+    : null;
   const sync = element("div", "sync-summary");
   sync.append(
-    element("strong", "", view.connector.mapped_sources + " 个确认来源"),
-    element("span", "", view.connector.last_success_at ? "同步于 " + formatDate(view.connector.last_success_at) : "尚未同步"),
+    element("strong", "", mappedSources + " 个确认来源"),
+    element("span", "", lastSuccessAt ? "同步于 " + formatDate(lastSuccessAt) : "尚未同步"),
   );
   head.append(title, sync);
   panel.append(head);
@@ -408,8 +416,8 @@ function renderWorkspaceDetail(view) {
     const empty = element("div", "project-memory-onboarding");
     empty.append(
       element("strong", "", "让项目记忆开始积累"),
-      element("p", "", "先启用 Lark Connector，再把这个项目的群聊或文档明确映射进来；系统不会读取未映射资源。"),
-      element("code", "", "connectors.py map-chat / map-document → connectors.py sync"),
+      element("p", "", "你可以先收录本地证据，也可以选择一个外部连接器，把已确认的项目来源映射进来；系统不会读取未映射资源。"),
+      element("code", "", "收录证据 → 生成项目脉络 → 在这里审阅"),
     );
     panel.append(empty);
     return;
@@ -429,7 +437,7 @@ function renderWorkspaceDetail(view) {
     const identity = element("div", "");
     identity.append(
       element("strong", "", source.label),
-      element("span", "", source.kind === "chat" ? "飞书会话" : "飞书文档"),
+      element("span", "", source.provider + " · " + source.kind),
     );
     const reference = element("div", "project-source-reference");
     reference.append(
