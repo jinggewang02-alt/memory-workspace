@@ -197,6 +197,20 @@ class ProviderNeutralProjectMemoryTests(unittest.TestCase):
         self.assertIn("Memory Core", view["sections"]["decisions"][0]["text"])
         self.assertEqual(view["sources"][0]["provider"], "local-notes")
         self.assertTrue((self.root / "field-notes" / snapshot_ref).is_file())
+        note = self.root / "field-notes" / view["sources"][0]["source_note"]
+        note_text = note.read_text(encoding="utf-8")
+        for field in (
+            "source_id:",
+            "source_kind:",
+            "source_path:",
+            "source_type:",
+            "ingested:",
+        ):
+            self.assertIn(field, note_text)
+        log_text = (self.root / "field-notes" / "wiki" / "log.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("## [2026-08-30] ingest | Connector project sync", log_text)
         checked = workspace.check_workspace("field-notes", root=self.root)
         self.assertEqual(checked["status"], "OK", checked["errors"])
 

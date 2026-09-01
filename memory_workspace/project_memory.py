@@ -109,6 +109,7 @@ def _find_or_create_source_note(
     if note_path is None:
         note_path = source_dir / f"{workspace_store._next_source_id(source_dir)}.md"
     source_note_id = note_path.stem
+    ingested = connector_protocol.parse_datetime(captured_at).date().isoformat()
     scalar = lambda value: json.dumps(value, ensure_ascii=False)
     text = (
         "---\n"
@@ -117,6 +118,13 @@ def _find_or_create_source_note(
         f"kind: connector_{source['provider']}_{source['kind']}\n"
         f"title: {scalar(source['label'])}\n"
         f"content_path: {scalar(snapshot_ref_value)}\n"
+        # Keep the legacy Wiki aliases so an existing project can adopt the
+        # Core without maintaining a parallel set of Source Notes.
+        f"source_id: {source_note_id}\n"
+        f"source_kind: {source['provider']}_{source['kind']}\n"
+        f"source_path: {scalar(snapshot_ref_value)}\n"
+        f"source_type: {source['kind']}\n"
+        f"ingested: {ingested}\n"
         f"external_ref: {scalar(external_ref)}\n"
         f"captured_at: {scalar(captured_at)}\n"
         f"coverage: {scalar(coverage['start'] + ' to ' + coverage['end'])}\n"
@@ -490,8 +498,9 @@ def persist_sync_bundle(
     atomic_write_text(
         log_path,
         log_text.rstrip()
-        + f"\n\n## {manifest_document['captured_at']} — Connector project sync\n\n"
-        + f"Captured {len(snapshot_rows)} mapped `{clean_provider}` sources in `{manifest_ref}`.\n",
+        + f"\n\n## [{captured.date().isoformat()}] ingest | Connector project sync\n\n"
+        + f"Captured at {manifest_document['captured_at']}: "
+        + f"{len(snapshot_rows)} mapped `{clean_provider}` sources in `{manifest_ref}`.\n",
         backup=False,
         allow_transient=workspace_store.allow_transient(),
     )
