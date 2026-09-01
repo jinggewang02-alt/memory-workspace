@@ -3,7 +3,7 @@ name: memory-workspace
 description: 维护本机优先的统一 Memory Home：Personal Memory 保存精确个人资料与跨项目工作脉络，Workspaces 保存项目证据和 Wiki，System 保存异步队列与审计状态。用户要求创建、检查或查询个人记忆、Workspace/Wiki/知识库，收录证据，记住或调用个人资料，或为本人制作简历、自我介绍、申请和表单时使用。还支持历史 Query 习惯学习、异步 Candidate 审阅和显式启用的外部连接器。
 ---
 
-# Memory Workspace
+# Memory Home
 
 将所有脚本路径解析为相对于本 `SKILL.md` 所在目录。统一根目录默认是
 `~/.memory-home/`：初始化和迁移使用 `scripts/home.py`，Workspace 使用

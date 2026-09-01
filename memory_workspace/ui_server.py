@@ -310,7 +310,7 @@ def build_handler(
     )
 
     class ReviewInboxHandler(BaseHTTPRequestHandler):
-        server_version = "MemoryWorkspaceUI/1.0"
+        server_version = "MemoryHomeUI/1.0"
 
         def end_headers(self) -> None:
             self.send_header("Cache-Control", "no-store")
@@ -374,7 +374,7 @@ def build_handler(
                     self._send_json(
                         {
                             "ok": True,
-                            "service": "memory-workspace-home-ui",
+                            "service": "memory-home-ui",
                             "status": "ready",
                             "loopback_only": True,
                         }

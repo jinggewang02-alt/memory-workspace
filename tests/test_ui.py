@@ -176,7 +176,7 @@ class LocalReviewInboxTests(unittest.TestCase):
         status, payload, headers = self.get("/api/health")
         self.assertEqual(status, 200)
         self.assertEqual(payload["status"], "ready")
-        self.assertEqual(payload["service"], "memory-workspace-home-ui")
+        self.assertEqual(payload["service"], "memory-home-ui")
         self.assertTrue(payload["loopback_only"])
         self.assertEqual(headers["Cache-Control"], "no-store")
 

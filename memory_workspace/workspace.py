@@ -419,7 +419,7 @@ def ingest_source(
     except OSError as exc:
         raise MemoryWorkspaceError(f"无法读取来源文件 {source}：{exc}") from exc
     if b"-----BEGIN PRIVATE KEY-----" in data or b"-----BEGIN RSA PRIVATE KEY-----" in data:
-        raise MemoryWorkspaceError("来源包含私钥标记；Memory Workspace 不保存高风险秘密。")
+        raise MemoryWorkspaceError("来源包含私钥标记；Memory Home 不保存高风险秘密。")
     content_hash = sha256_bytes(data)
     source_dir = workspace / "wiki" / "sources"
     existing = _existing_source_for_hash(source_dir, content_hash)

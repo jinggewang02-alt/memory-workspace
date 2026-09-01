@@ -62,7 +62,7 @@ Agent 不能根据安装了本 Skill、发现 `lark-cli`、用户提到“飞书
 - Chat：`im +chat-messages-list`，user identity，checkpoint 窗口，只读、无 reactions；
 - Document：`docs +fetch`，user identity，Markdown + simple detail，只读；
 - 首次同步从当前时间向前使用配置的 lookback；之后从最近成功
-  `checkpoint.coverage.end` 增量读取；
+  `checkpoint.coverage.end` 后 1 秒开始增量读取，避免重复捕获包含式起始边界上的事件；
 - 默认至少间隔 24 小时；`--force` 只跳过到期判断，不扩大来源或权限。
 
 广泛发现计划当前需要聊天、消息与 Drive 搜索相关 scope。精确项目同步只调用映射来源所

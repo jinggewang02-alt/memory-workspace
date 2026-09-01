@@ -602,7 +602,10 @@ def plan_connector_sync(
                 "commands": [],
                 "external_read_performed": False,
             }
-        start = _parse_datetime(checkpoint["coverage"]["end"])
+        # Lark's message-list lower bound is inclusive. Move one second past the
+        # last complete checkpoint so an event exactly on the old boundary is
+        # not captured twice in consecutive immutable snapshots.
+        start = _parse_datetime(checkpoint["coverage"]["end"]) + timedelta(seconds=1)
     if start > current:
         raise MemoryWorkspaceError("checkpoint coverage.end 晚于当前时间，已停止增量计划。")
 

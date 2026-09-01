@@ -6,7 +6,7 @@
           {
             "type": "command",
             "command": "python3 /ABSOLUTE/PATH/TO/memory-workspace/adapters/codex/on_user_prompt.py",
-            "statusMessage": "Memory Workspace：识别知识库与个人档案意图",
+            "statusMessage": "Memory Home：识别知识库与个人档案意图",
             "timeout": 10
           }
         ]

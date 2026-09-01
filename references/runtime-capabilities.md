@@ -1,6 +1,6 @@
 # Runtime capability negotiation
 
-Memory Workspace is portable across agent runtimes by capability, not by a
+Memory Home is portable across agent runtimes by capability, not by a
 closed list of product names. A runtime is compatible only to the extent that
 it can expose the required execution and storage capabilities.
 

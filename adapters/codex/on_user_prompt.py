@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""[Codex CLI] UserPromptSubmit hook for Memory Workspace intents.
+"""[Codex CLI] UserPromptSubmit hook for Memory Home intents.
 
 hook 无法调用 LLM，只做确定性的关键词粗判，把该做的事作为指令注入 agent：
   - 命中 Workspace/Wiki 信号                 → 注入 PROJECT_WIKI 指令

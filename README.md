@@ -1,8 +1,8 @@
-# Memory Workspace
+# Memory Home
 
 **给任意 Agent 一套本地优先、可审阅、以项目为中心的长期记忆。**
 
-Memory Workspace 不是一个需要长期在线的云服务。用户把它下载到自己的电脑或 Agent 运行环境后，Agent 在统一的 `~/.memory-home/` 中维护个人工作记忆、项目 Workspace、证据、Query 习惯和待审变更。
+Memory Home 不是一个需要长期在线的云服务。用户把它下载到自己的电脑或 Agent 运行环境后，Agent 在统一的 `~/.memory-home/` 中维护个人工作记忆、项目 Workspace、证据、Query 习惯和待审变更。
 
 它想解决的不是“多记几条零散信息”，而是让 Agent 在长期协作中逐渐理解：
 
@@ -75,8 +75,8 @@ Observation、manifest、checkpoint 和 `project-memory.json` 都由 Core 统一
 ### 下载并准备
 
 ```bash
-git clone https://github.com/jinggewang02-alt/memory-workspace.git
-cd memory-workspace
+git clone https://github.com/jinggewang02-alt/memory-home.git
+cd memory-home
 python3 scripts/quickstart.py --json
 ```
 
@@ -127,7 +127,7 @@ python3 scripts/capture.py habits show
 python3 scripts/capture.py onboarding confirm
 ```
 
-Memory Workspace 不会静默搜索其他账号、扩大读取范围或绕过平台权限。
+Memory Home 不会静默搜索其他账号、扩大读取范围或绕过平台权限。
 
 ### 按需增加 Provider：以飞书为例
 
@@ -143,6 +143,17 @@ python3 scripts/connectors.py map-document my-workspace --document-id doc_xxx --
 python3 scripts/connectors.py sync my-workspace --json
 python3 scripts/connectors.py project-view my-workspace --json
 ```
+
+已有一个不在 `~/.memory-home/workspaces/` 下的本地 Wiki 时，可以显式指定它的
+Workspace 父目录，不需要移动或复制原有证据：
+
+```bash
+python3 scripts/connectors.py sync <workspace-id> \
+  --workspaces-root /absolute/path/to/workspace-parent --json
+```
+
+`--workspaces-root` 只用于用户明确选定的旧项目兼容。新建 Workspace 仍默认位于
+`~/.memory-home/workspaces/`。
 
 `enable-lark` 只记录本地授权配置；`plan` 用于审阅有界发现计划，不执行读取。真正的
 `sync` 只读取 `map-chat` / `map-document` 明确映射到该 Workspace 的来源，不会把发现计划
@@ -272,6 +283,6 @@ python3 -m unittest discover -s tests -v
 
 ## 项目状态
 
-Memory Workspace 目前适合个人、本地、可审阅的 Agent 记忆实验与持续迭代。它还不是一个提供稳定托管服务的 C 端产品，也不承诺所有 Agent 或外部平台都具备相同的历史访问能力。
+Memory Home 目前适合个人、本地、可审阅的 Agent 记忆实验与持续迭代。它还不是一个提供稳定托管服务的 C 端产品，也不承诺所有 Agent 或外部平台都具备相同的历史访问能力。
 
 如果你正在接入新的 Agent，建议先运行能力探测，再根据适配器契约完成最小环境准备。

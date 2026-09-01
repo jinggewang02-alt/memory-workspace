@@ -5,7 +5,7 @@ Updated: 2026-08-30
 
 本文档定义“通用 Memory Core + 可选 Provider Adapter”的单向依赖边界。Adapter 负责
 外部认证、命令、分页和字段标准化；Core 负责证据持久化、项目脉络、候选、审阅和正式
-写入。Core 不导入任何 Provider，安装 Memory Workspace 本身也不等于启用外部连接器。
+写入。Core 不导入任何 Provider，安装 Memory Home 本身也不等于启用外部连接器。
 
 ```text
 Provider Skill / Adapter
@@ -125,7 +125,7 @@ Exact Profile 的逐字写入流程。
 ```
 
 - 首次默认回看 30 天、最多 30 个活跃会话、每个会话先取 20 条，必要时最多扩到 50 条。
-- 每日增量从最近一次成功 `coverage.end` 开始；默认最小间隔 24 小时。
+- 每日增量从最近一次成功 `coverage.end` 后 1 秒开始；默认最小间隔 24 小时。
 - 新聊天、新参与者和新文档只是待解析证据，不等于值得记忆。
 - 只有新证据跨过项目解析、重要性和新颖性门槛，才生成 Candidate。
 - checkpoint 只能在不可变快照真实存在后推进，失败或不完整范围必须保留准确边界。

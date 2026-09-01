@@ -115,7 +115,7 @@ class ExplicitLarkConnectorTests(unittest.TestCase):
         )
         self.assertEqual(due["status"], "due")
         self.assertEqual(due["phase"], "daily_incremental")
-        self.assertEqual(due["coverage"]["start"], "2026-08-27T02:00:00Z")
+        self.assertEqual(due["coverage"]["start"], "2026-08-27T02:00:01Z")
         self.assertEqual(due["commands"][1]["foreach"], "confirmed_or_new_chat_ids")
         self.assertEqual(due["commands"][-1]["task_id"], "known-document-metadata")
 

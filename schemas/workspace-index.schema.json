@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://memory-workspace.dev/schemas/workspace-index.schema.json",
-  "title": "Memory Workspace derived index",
+  "title": "Memory Home derived index",
   "type": "object",
   "additionalProperties": false,
   "required": [

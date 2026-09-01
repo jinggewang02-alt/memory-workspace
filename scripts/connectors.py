@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure and plan explicit, provider-gated Memory Workspace connectors."""
+"""Configure and plan explicit, provider-gated Memory Home connectors."""
 
 from __future__ import annotations
 
@@ -21,6 +21,13 @@ from memory_workspace.providers.lark import sync_lark_workspace  # noqa: E402
 
 
 def add_json_flag(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--workspaces-root",
+        help=(
+            "override the Workspace parent directory for an existing local Wiki; "
+            "omit to use ~/.memory-home/workspaces"
+        ),
+    )
     parser.add_argument("--json", action="store_true", dest="as_json")
 
 
@@ -109,8 +116,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_command(args: argparse.Namespace) -> Any:
+    root = (
+        Path(args.workspaces_root).expanduser().resolve()
+        if args.workspaces_root
+        else None
+    )
     if args.cmd == "status":
-        return connectors.connector_status(args.workspace_id, provider=args.provider)
+        return connectors.connector_status(
+            args.workspace_id, provider=args.provider, root=root
+        )
     if args.cmd == "enable-lark":
         return connectors.enable_lark_connector(
             args.workspace_id,
@@ -121,10 +135,11 @@ def run_command(args: argparse.Namespace) -> Any:
             expanded_messages_per_chat=args.expanded_messages_per_chat,
             minimum_interval_hours=args.minimum_interval_hours,
             event_acceleration=args.event_acceleration,
+            root=root,
         )
     if args.cmd == "disable":
         return connectors.disable_connector(
-            args.workspace_id, provider=args.provider, actor=args.actor
+            args.workspace_id, provider=args.provider, actor=args.actor, root=root
         )
     if args.cmd == "plan":
         return connectors.plan_connector_sync(
@@ -132,6 +147,7 @@ def run_command(args: argparse.Namespace) -> Any:
             provider=args.provider,
             now=args.at,
             force=args.force,
+            root=root,
         )
     if args.cmd == "map-chat":
         return connectors.map_lark_source(
@@ -139,6 +155,7 @@ def run_command(args: argparse.Namespace) -> Any:
             kind="chat",
             external_id=args.chat_id,
             label=args.label,
+            root=root,
         )
     if args.cmd == "map-document":
         return connectors.map_lark_source(
@@ -147,12 +164,13 @@ def run_command(args: argparse.Namespace) -> Any:
             external_id=args.document_id,
             locator=args.doc,
             label=args.label,
+            root=root,
         )
     if args.cmd == "sources":
         return {
             "workspace_id": args.workspace_id,
             "provider": "lark",
-            "sources": connectors.list_connector_sources(args.workspace_id),
+            "sources": connectors.list_connector_sources(args.workspace_id, root=root),
             "external_read_performed": False,
         }
     if args.cmd == "sync":
@@ -161,9 +179,10 @@ def run_command(args: argparse.Namespace) -> Any:
             now=args.at,
             force=args.force,
             trigger=args.trigger,
+            root=root,
         )
     if args.cmd == "project-view":
-        return project_memory.load_project_memory(args.workspace_id)
+        return project_memory.load_project_memory(args.workspace_id, root=root)
     if args.cmd == "checkpoint":
         return connectors.record_sync_success(
             args.workspace_id,
@@ -174,6 +193,7 @@ def run_command(args: argparse.Namespace) -> Any:
             trigger=args.trigger,
             complete=not args.incomplete,
             high_watermark_external_id=args.high_watermark_external_id,
+            root=root,
         )
     raise MemoryWorkspaceError(f"未知命令：{args.cmd}")
 
@@ -212,7 +232,10 @@ def render_text(args: argparse.Namespace, result: Any) -> None:
             print(f"manifest: {result['manifest_ref']}")
     elif args.cmd == "project-view":
         print(f"status: {result['status']}")
-        print(f"mapped_sources: {result['connector']['mapped_sources']}")
+        print(
+            "mapped_sources: "
+            f"{sum(item['mapped_sources'] for item in result['connectors'])}"
+        )
         for section in ("updates", "decisions", "next_actions", "people", "artifacts"):
             print(f"{section}: {len(result['sections'][section])}")
     elif args.cmd == "checkpoint":
