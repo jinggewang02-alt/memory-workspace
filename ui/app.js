@@ -13,6 +13,18 @@ const state = {
   memoryHome: null,
   profileKey: null,
   workspaceId: null,
+  uiState: null,
+  wizardStep: 1,
+  onboardingPath: "direct",
+  activePage: "overview",
+};
+
+const pageCopy = {
+  overview: ["总览", "今天的记忆状态与下一步"],
+  personal: ["我的记忆", "精确资料、工作脉络与偏好"],
+  workspaces: ["项目", "由来源证据维护的项目知识"],
+  review: ["待审", "决定哪些草稿值得长期保留"],
+  sources: ["来源与设置", "管理本地边界和可选连接器"],
 };
 
 const labels = {
@@ -126,6 +138,7 @@ async function loadOverview() {
   state.overview = overview;
   renderSetup(overview.readiness);
   $("#stat-proposed").textContent = overview.counts.proposed;
+  $("#nav-review-count").textContent = overview.counts.proposed || "";
   $("#pending-episodes").textContent = overview.pending_episode_count
     ? overview.pending_episode_count + " 个对话片段等待后台判断"
     : "当前没有待处理的对话片段";
@@ -474,7 +487,35 @@ function renderMemoryHome(data) {
   renderProfileItems(data.personal.profile);
   renderPersonalDocuments(data.personal);
   renderWorkspaces(data.workspaces);
+  renderSourceWorkspaces(data.workspaces);
+  $("#home-path-value").textContent = data.home.path;
   if (!state.profileKey) renderProfileDetailEmpty();
+}
+
+function renderSourceWorkspaces(items) {
+  const list = $("#source-workspace-list");
+  list.replaceChildren();
+  if (!items.length) {
+    const empty = element("div", "compact-empty", "还没有项目。第一次处理真实项目时再创建 Workspace。");
+    list.append(empty);
+    return;
+  }
+  items.forEach((item) => {
+    const row = element("div", "source-row");
+    const memory = item.project_memory;
+    row.append(
+      element("strong", "", item.name),
+      element("span", "", memory.mapped_sources + " 个已映射来源"),
+      element(
+        "small",
+        "",
+        memory.enabled_connectors
+          ? "连接器已启用；同步仍只读取明确映射的来源。"
+          : "连接器关闭；当前仅使用本地文件。",
+      ),
+    );
+    list.append(row);
+  });
 }
 
 async function loadMemoryHome(preferredKey = null) {
@@ -1099,18 +1140,188 @@ function bindTabs() {
   });
 }
 
+function activatePage(page) {
+  if (!pageCopy[page]) return;
+  state.activePage = page;
+  document.querySelectorAll(".nav-item[data-page]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.page === page);
+  });
+  document.querySelectorAll("[data-page-panel]").forEach((panel) => {
+    panel.classList.toggle("is-active", panel.dataset.pagePanel === page);
+  });
+  $("#page-heading").textContent = pageCopy[page][0];
+  $("#page-subheading").textContent = pageCopy[page][1];
+}
+
+function bindAppNavigation() {
+  document.querySelectorAll(".nav-item[data-page]").forEach((button) => {
+    button.addEventListener("click", () => activatePage(button.dataset.page));
+  });
+}
+
+async function loadRuntime() {
+  if (!window.memoryHomeDesktop) {
+    $("#runtime-kind").textContent = "浏览器模式";
+    $("#runtime-detail").textContent = "本地浏览器 + Python Core";
+    return;
+  }
+  try {
+    const runtime = await window.memoryHomeDesktop.runtime();
+    $("#runtime-kind").textContent = runtime.packaged ? "桌面应用" : "Electron 开发版";
+    $("#runtime-detail").textContent = runtime.packaged
+      ? "Electron + 本地 Core"
+      : "Electron 开发模式 + 本地 Core";
+  } catch {
+    $("#runtime-kind").textContent = "Electron";
+    $("#runtime-detail").textContent = "Electron + 本地 Core";
+  }
+}
+
+function showMainApp() {
+  $("#boot-screen").hidden = true;
+  $("#onboarding-shell").hidden = true;
+  $("#app-shell").hidden = false;
+  activatePage(state.activePage);
+}
+
+function showFirstRun() {
+  $("#boot-screen").hidden = true;
+  $("#app-shell").hidden = true;
+  $("#onboarding-shell").hidden = false;
+  renderWizard();
+}
+
+function selectOnboardingPath(path) {
+  if (!["direct", "history", "provider"].includes(path)) return;
+  state.onboardingPath = path;
+  document.querySelectorAll("[data-onboarding-path]").forEach((button) => {
+    const selected = button.dataset.onboardingPath === path;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-checked", selected ? "true" : "false");
+  });
+}
+
+function renderWizard() {
+  document.querySelectorAll("[data-wizard-step]").forEach((panel) => {
+    panel.hidden = Number(panel.dataset.wizardStep) !== state.wizardStep;
+  });
+  document.querySelectorAll("[data-wizard-step-marker]").forEach((marker) => {
+    const step = Number(marker.dataset.wizardStepMarker);
+    marker.classList.toggle("is-active", step === state.wizardStep);
+    marker.classList.toggle("is-complete", step < state.wizardStep);
+  });
+  ["direct", "history", "provider"].forEach((path) => {
+    $("#wizard-" + path).hidden = path !== state.onboardingPath;
+  });
+  const readiness = state.overview?.readiness;
+  $("#wizard-readiness").textContent = readiness?.ready_to_use
+    ? "持久目录与数据结构已就绪"
+    : "需要先完成本地初始化";
+  $("#wizard-back").hidden = state.wizardStep === 1;
+  $("#wizard-skip").hidden = state.wizardStep === 3;
+  $("#wizard-next").textContent = state.wizardStep === 3 ? "进入 Memory Home" : "下一步";
+  if (state.wizardStep === 3) {
+    const copy = {
+      direct: "先从总览开始，之后可以随时补充历史或项目来源。",
+      history: "历史习惯会先作为草稿保留；确认前不会变成正式策略。",
+      provider: "进入后从“来源与设置”查看 Workspace 状态，再让 Agent 完成授权与映射。",
+    };
+    $("#wizard-finish-copy").textContent = copy[state.onboardingPath];
+  }
+}
+
+async function completeUiOnboarding() {
+  const payload = await api("/api/ui-state/complete", {
+    method: "POST",
+    body: { selected_path: state.onboardingPath },
+  });
+  state.uiState = payload.ui_state;
+  showMainApp();
+}
+
+async function loadUiState() {
+  const payload = await api("/api/ui-state");
+  state.uiState = payload.ui_state;
+}
+
+function bindFirstRun() {
+  document.querySelectorAll("[data-onboarding-path]").forEach((button) => {
+    button.addEventListener("click", () => selectOnboardingPath(button.dataset.onboardingPath));
+  });
+  $("#wizard-back").addEventListener("click", () => {
+    state.wizardStep = Math.max(1, state.wizardStep - 1);
+    renderWizard();
+  });
+  $("#wizard-next").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    if (state.wizardStep < 3) {
+      state.wizardStep += 1;
+      renderWizard();
+      return;
+    }
+    button.disabled = true;
+    try {
+      await completeUiOnboarding();
+    } catch (error) {
+      button.disabled = false;
+      showToast(error.message, true);
+    }
+  });
+  $("#wizard-skip").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await completeUiOnboarding();
+    } catch (error) {
+      button.disabled = false;
+      showToast(error.message, true);
+    }
+  });
+  $("#wizard-history-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const value = $("#wizard-history-source").value.trim();
+    if (!value) {
+      showToast("请填写当前 Agent 提供的本机 JSONL 路径。", true);
+      return;
+    }
+    const submit = event.currentTarget.querySelector("button[type='submit']");
+    submit.disabled = true;
+    submit.textContent = "正在分析…";
+    $("#wizard-history-status").textContent = "正在本机读取并分析近 30 天对话…";
+    await startOnboarding(value);
+    submit.disabled = false;
+    submit.textContent = "分析近 30 天";
+    $("#wizard-history-status").textContent = state.onboarding?.status === "awaiting_review"
+      ? "习惯草稿已经生成；进入应用后可以审阅确认。"
+      : "没有完成分析。你仍可先进入应用，稍后再试。";
+  });
+}
+
 async function init() {
   bindTabs();
   bindOnboarding();
   bindMemoryHome();
+  bindAppNavigation();
+  bindFirstRun();
   try {
     const session = await api("/api/session");
     state.token = session.token;
-    await Promise.all([loadOverview(), loadMemoryHome(), loadCandidates(), loadOnboarding()]);
+    await Promise.all([
+      loadOverview(),
+      loadMemoryHome(),
+      loadCandidates(),
+      loadOnboarding(),
+      loadUiState(),
+      loadRuntime(),
+    ]);
+    if (state.uiState.completed) showMainApp();
+    else showFirstRun();
   } catch (error) {
     showToast(error.message, true);
     renderSetupError();
     $("#candidate-list").replaceChildren(element("div", "loading", "无法连接本地数据。请确认服务仍在运行。"));
+    $("#boot-screen").hidden = true;
+    $("#app-shell").hidden = false;
   }
 }
 

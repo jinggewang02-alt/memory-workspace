@@ -12,7 +12,7 @@ Memory Home 不是一个需要长期在线的云服务。用户把它下载到�
 - 哪些个人资料需要跨项目精确召回；
 - 用户通常在什么情况下希望 Agent 记录，什么情况下不希望被打扰。
 
-> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和本地 Memory Home UI。架构分成独立的 Memory Core 与可选 Provider Adapter：不连接任何外部生态也能完整使用；飞书只是当前附带的第一个适配器。Personal Work 的跨项目自动维护与更深入的语义综合仍在迭代中，详见 [Roadmap](#roadmap)。
+> 当前版本已经跑通统一 Memory Home、本地 Workspace、精确个人档案、30 天 Query 习惯学习、异步候选记忆和 Electron 桌面 UI。架构分成独立的 Memory Core 与可选 Provider Adapter：不连接任何外部生态也能完整使用；飞书只是当前附带的第一个适配器。Personal Work 的跨项目自动维护与更深入的语义综合仍在迭代中，详见 [Roadmap](#roadmap)。
 
 ## 它如何工作
 
@@ -63,7 +63,7 @@ Observation、manifest、checkpoint 和 `project-memory.json` 都由 Core 统一
 - **首次 30 天习惯学习**：仅在 Agent 已获授权且能看到历史时，分析近 30 天用户 Query，生成 `query-habits.md` 和待确认的触发策略。
 - **主动记忆链路**：明确“记住”时立即正式写入并回读；未明确的 Query 默认只在本机轻量暂存，晚间按 Episode 批量解析并生成 Candidate，降低对回答耗时的影响。
 - **记忆引用**：回答真正使用 Personal Memory 或 Workspace 时，末尾显示一行不含敏感值和绝对路径的简短 `参考记忆`。
-- **本地 Memory Home UI**：在一个入口查看 Personal Memory、Workspace、习惯报告和候选记忆；精确资料值默认隐藏，单值修改会写入并逐字回读。
+- **Electron 桌面 UI**：桌面应用自动准备并启动本地 Python Core，在一个入口查看 Personal Memory、Workspace、来源、习惯报告和候选记忆；精确资料值默认隐藏，单值修改会写入并逐字回读。
 - **协议与 JSON Schema**：事件、候选、决策、应用回执、策略、Workspace 和索引均有可验证的数据结构。
 - **统一 Memory Home**：默认在 `~/.memory-home/` 下并列保存 Personal、Workspaces 和 System；旧目录可先预览、再只复制迁移。
 - **Provider-neutral 项目记忆链**：任意适配器交付标准 Sync Bundle 后，由 Core 统一保存不可变快照、Observation、来源笔记、checkpoint 和可重建项目视图。
@@ -72,7 +72,29 @@ Observation、manifest、checkpoint 和 `project-memory.json` 都由 Core 统一
 
 ## 5 分钟开始使用
 
-### 下载并准备
+### 桌面应用（推荐）
+
+```bash
+git clone https://github.com/jinggewang02-alt/memory-home.git
+cd memory-home
+npm install
+npm run desktop
+```
+
+当前桌面开发版需要 Node.js 和 Python 3.10+。Electron 会自动找到可用的 Python、执行
+一次幂等的本地准备、初始化 `~/.memory-home/`，再在随机的 `127.0.0.1` 端口启动 Core；
+健康检查通过后才显示窗口。用户不需要手动维持终端服务，也不需要复制本机链接。
+
+首次打开只提供三条路径：
+
+1. **直接开始（推荐）**：进入统一总览，之后按需补充个人或项目记忆；
+2. **导入已有对话**：只分析当前 Agent 明确提供的近 30 天历史文件；
+3. **连接工作平台**：先选 Workspace，再显式授权 Provider 和映射具体来源，本步骤不会自动读取外部内容。
+
+选择结果保存在 `~/.memory-home/system/ui/onboarding.json`。它只是 UI 状态，
+不会改变 Personal / Workspace 的正式数据协议。关闭应用时 Electron 会一并停止本次启动的 Core 服务。
+
+### 仅使用 Agent / CLI
 
 ```bash
 git clone https://github.com/jinggewang02-alt/memory-home.git
@@ -97,7 +119,7 @@ Agent 应先找到环境中实际可用的 Python 3.10+ 启动器，再执行这
 
 1. **直接开始（推荐）**：继续正常对话；明确要求会立即记住，其余内容晚间整理。
 2. **导入已有内容**：带入已有文件，或当前 Agent 已获授权可见的历史。
-3. **查看我的记忆**：查看已保存内容、习惯草稿和待审候选。
+3. **连接工作平台**：只在需要项目证据时配置可选 Provider，并明确映射来源。
 
 没有历史来源时安静延后；没有待审内容时无需打开 UI。
 
@@ -164,13 +186,13 @@ checkpoint。详见
 以后 Agent 需要回忆项目时，可先读取 `project-view`；这是 Core 生成的通用本地视图，
 不会因为一次普通问题触发任何外部网络请求。
 
-### 已初始化时单独打开 UI
+### 浏览器兼容入口
 
 ```bash
 python3 scripts/ui.py
 ```
 
-只有浏览器和 Agent 命令运行在同一台设备、并且该进程能够持续运行时，才使用本地 UI。
+Electron 不可用时，仍可保留浏览器入口。只有浏览器和 Agent 命令运行在同一台设备、并且该进程能够持续运行时，才使用它。
 服务成功启动后访问 `http://127.0.0.1:8741/`，并可通过 `/api/health` 确认服务确实处于
 `ready`。远程 Agent 或临时沙箱不能把自己的 `127.0.0.1` 当成用户电脑上的链接；这种
 情况下继续使用 CLI 或对话完成审阅。
@@ -196,13 +218,14 @@ python3 scripts/home.py migrate --json
 
 ## 用户旅程
 
-1. **准备完成**：用户把仓库交给 Agent；Agent 探测能力并初始化持久的 `~/.memory-home/`。
-2. **选择路径**：直接开始、导入已有内容，或查看已有记忆；默认推荐直接开始。
-3. **明确保存**：用户说“记住/保存”时，Agent 同轮写入正式记忆并回读校验。
-4. **普通对话**：只做本地轻量暂存，不在当前 Query 中调用模型判断是否记忆。
-5. **晚间加工**：宿主在当地晚间批量聚合 Episode；没有调度能力时下次启动或空闲补跑。
-6. **按需审阅**：未明确保存的内容最多生成 Candidate，经用户批准才进入正式记忆。
-7. **透明召回**：回答实际使用 Memory Home 时，末尾显示简短的 `参考记忆`。
+1. **打开应用**：Electron 自动准备 `~/.memory-home/`、启动本地 Core 并等待健康检查通过。
+2. **选择路径**：直接开始、导入已有对话，或连接工作平台；默认推荐直接开始。
+3. **进入 Home**：从总览切换到我的记忆、项目、待审和来源；不需要访问手工端口链接。
+4. **明确保存**：用户说“记住/保存”时，Agent 同轮写入正式记忆并回读校验。
+5. **普通对话**：只做本地轻量暂存，不在当前 Query 中调用模型判断是否记忆。
+6. **晚间加工**：宿主在当地晚间批量聚合 Episode；没有调度能力时下次启动或空闲补跑。
+7. **按需审阅**：未明确保存的内容最多生成 Candidate，经用户批准才进入正式记忆。
+8. **透明召回**：回答实际使用 Memory Home 时，末尾显示简短的 `参考记忆`。
 
 ## Agent 如何接入
 
@@ -233,6 +256,7 @@ Observation；Workspace、策略和 UI 不感知具体平台名称，Core 也不
 
 ```text
 memory-workspace/
+├── desktop/                # Electron 主进程与受限 preload
 ├── SKILL.md                 # Agent 使用入口与行为边界
 ├── memory_workspace/        # Python Core；providers/ 下是可选适配器
 ├── skills/                  # 独立 Provider Skill（当前含 Lark）
@@ -268,6 +292,13 @@ memory-workspace/
 
 ```bash
 python3 -m unittest discover -s tests -v
+```
+
+验证桌面入口和生成未签名的本机应用包：
+
+```bash
+npm run desktop:check
+npm run desktop:pack
 ```
 
 进一步阅读：

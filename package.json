@@ -1,0 +1,54 @@
+{
+  "name": "memory-home-desktop",
+  "version": "0.12.0",
+  "private": true,
+  "description": "Local-first desktop host for Memory Home",
+  "author": "Memory Home contributors",
+  "repository": "https://github.com/jinggewang02-alt/memory-home",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "desktop": "electron .",
+    "desktop:check": "node --check desktop/main.cjs && node --check desktop/preload.cjs",
+    "desktop:pack": "electron-builder --dir",
+    "desktop:dist:mac": "electron-builder --mac dmg"
+  },
+  "devDependencies": {
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "dev.memoryhome.desktop",
+    "productName": "Memory Home",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "memory_workspace",
+        "to": "memory-home/memory_workspace"
+      },
+      {
+        "from": "scripts",
+        "to": "memory-home/scripts"
+      },
+      {
+        "from": "schemas",
+        "to": "memory-home/schemas"
+      },
+      {
+        "from": "ui",
+        "to": "memory-home/ui"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg"
+      ]
+    }
+  }
+}

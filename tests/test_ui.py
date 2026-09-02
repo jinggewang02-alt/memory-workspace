@@ -144,10 +144,12 @@ class LocalReviewInboxTests(unittest.TestCase):
         with urlopen(self.base_url + "/", timeout=3) as response:
             html = response.read().decode()
             headers = dict(response.headers.items())
-        self.assertIn("你的记忆，放在一个地方", html)
+        self.assertIn("你想从哪里开始", html)
+        self.assertIn("连接工作平台", html)
+        self.assertIn("来源与本地设置", html)
         self.assertIn("关于你的长期记忆", html)
         self.assertIn("以项目为中心的知识", html)
-        self.assertIn("先理解你的提问方式", html)
+        self.assertIn("理解你的提问方式", html)
         self.assertEqual(headers["Cache-Control"], "no-store")
         self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
         with urlopen(self.base_url + "/app.css", timeout=3) as response:
@@ -171,6 +173,39 @@ class LocalReviewInboxTests(unittest.TestCase):
         self.assertEqual(memory_home["personal"]["profile"]["count"], 0)
         self.assertTrue(memory_home["personal"]["profile"]["values_masked"])
         self.assertEqual(memory_home["workspaces"], [])
+
+    def test_ui_first_run_state_is_durable_and_requires_session_token(self) -> None:
+        status, payload, _ = self.get("/api/ui-state")
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["ui_state"]["completed"])
+        self.assertIsNone(payload["ui_state"]["selected_path"])
+
+        with self.assertRaises(HTTPError) as denied:
+            self.post("/api/ui-state/complete", {"selected_path": "direct"})
+        self.assertEqual(denied.exception.code, 403)
+
+        with self.assertRaises(HTTPError) as invalid:
+            self.post(
+                "/api/ui-state/complete",
+                {"selected_path": "unknown-platform"},
+                token="synthetic-test-token",
+            )
+        self.assertEqual(invalid.exception.code, 400)
+
+        status, completed = self.post(
+            "/api/ui-state/complete",
+            {"selected_path": "provider"},
+            token="synthetic-test-token",
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(completed["ui_state"]["completed"])
+        self.assertEqual(completed["ui_state"]["selected_path"], "provider")
+        self.assertTrue(
+            (self.memory_home / "system" / "ui" / "onboarding.json").is_file()
+        )
+
+        _, persisted, _ = self.get("/api/ui-state")
+        self.assertEqual(persisted["ui_state"]["selected_path"], "provider")
 
     def test_health_endpoint_only_claims_ready_after_server_is_listening(self) -> None:
         status, payload, headers = self.get("/api/health")

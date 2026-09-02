@@ -65,7 +65,7 @@ Memory Home、Personal Learning、Workspace 和 Capture 的实际路径，以及
 
 1. `直接开始（推荐）`：继续正常对话；明确要求立即保存，其余 Query 仅本地暂存并晚间整理。
 2. `导入已有内容`：带入已有文件，或当前 Agent 已获授权可见的历史。
-3. `查看我的记忆`：查看已保存内容、习惯草稿和待审 Candidate。
+3. `连接工作平台`：只在项目确实需要外部证据时，显式配置 Provider 和来源映射。
 
 真实项目、个人资料和文件出现时再按场景路由；没有历史来源时安静延后；没有待审内容时
 不主动要求打开 UI。不要再把 Workspace、Profile、文件、UI、历史拆成五个初始化选项。
@@ -251,6 +251,20 @@ Exact Profile。新协议 v3 使用 `workspace/personal`，其中 Personal Work 
 提议和应用尚未完成；不得把目录骨架或 Schema 就绪说成已经能够自动维护个人工作脉络。
 
 ### 本地 Memory Home 管理台
+
+同机桌面环境已经安装项目依赖时，优先启动 Electron：
+
+```bash
+npm run desktop
+```
+
+Electron 会调用 `quickstart.py` 幂等初始化 Memory Home、选择 Python 3.10+、在随机回环端口
+启动 Core，并在 `/api/health` 就绪后显示窗口。首次引导只提供直接开始、导入已有对话、
+连接工作平台三条路径。Provider 路径只解释并承接 Workspace、授权和明确来源映射，不得
+自动探测账号或读取外部内容。Renderer 无 Node 和文件系统权限，正式写入仍必须走 Core Writer。
+
+不得为了打开桌面 UI 擅自安装 Node、Electron 或 Python；依赖缺失时报告边界并继续使用 CLI。
+Electron 不可用但有同机浏览器时，可以启动兼容 UI：
 
 环境有浏览器且用户要查看 Personal Memory、Workspace 或待审候选时，可以启动最小本地 UI：
 

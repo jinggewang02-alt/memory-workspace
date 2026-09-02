@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Memory Home</title>
+    <link rel="stylesheet" href="/app.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div id="boot-screen" class="boot-screen">
+      <span class="brand-glyph" aria-hidden="true">M</span>
+      <p>正在打开 Memory Home…</p>
+    </div>
+
+    <section id="onboarding-shell" class="onboarding-shell" hidden aria-labelledby="onboarding-title">
+      <header class="onboarding-header window-drag">
+        <div class="onboarding-brand"><span class="brand-glyph" aria-hidden="true">M</span><strong>Memory Home</strong></div>
+        <ol class="onboarding-steps" aria-label="首次使用进度">
+          <li class="is-active" data-wizard-step-marker="1"><span>1</span><em>选择路径</em></li>
+          <li data-wizard-step-marker="2"><span>2</span><em>准备记忆</em></li>
+          <li data-wizard-step-marker="3"><span>3</span><em>开始使用</em></li>
+        </ol>
+        <span class="onboarding-local">仅在本机处理</span>
+      </header>
+
+      <main class="onboarding-main">
+        <section class="wizard-panel" data-wizard-step="1">
+          <p class="eyebrow">WELCOME</p>
+          <h1 id="onboarding-title">你想从哪里开始？</h1>
+          <p class="wizard-lead">先选一条最符合当前情况的路径。其他能力之后仍可添加。</p>
+          <div class="route-grid" role="radiogroup" aria-label="首次使用路径">
+            <button class="route-card is-selected" type="button" role="radio" aria-checked="true" data-onboarding-path="direct">
+              <span class="route-index">01</span><span class="route-copy"><strong>直接开始</strong><small>先使用个人记忆和项目空间，推荐第一次体验选择。</small></span><span class="route-tag">推荐</span>
+            </button>
+            <button class="route-card" type="button" role="radio" aria-checked="false" data-onboarding-path="history">
+              <span class="route-index">02</span><span class="route-copy"><strong>导入已有对话</strong><small>分析当前 Agent 有权提供的近 30 天历史，先形成习惯草稿。</small></span><span class="route-tag">可选</span>
+            </button>
+            <button class="route-card" type="button" role="radio" aria-checked="false" data-onboarding-path="provider">
+              <span class="route-index">03</span><span class="route-copy"><strong>连接工作平台</strong><small>通过 Provider 显式授权并映射项目来源，不会自动扫描可见内容。</small></span><span class="route-tag">项目记忆</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="wizard-panel" data-wizard-step="2" hidden>
+          <div id="wizard-direct" class="wizard-path-panel">
+            <p class="eyebrow">LOCAL FIRST</p><h1>基础记忆已经可以使用。</h1>
+            <p class="wizard-lead">明确说“记住”时会直接保存；普通对话先轻量暂存，之后再生成待审草稿。</p>
+            <div class="readiness-card"><div><span>本地 Memory Home</span><strong id="wizard-readiness">正在确认…</strong></div><span class="readiness-dot"></span></div>
+          </div>
+          <div id="wizard-history" class="wizard-path-panel" hidden>
+            <p class="eyebrow">FIRST LEARNING</p><h1>提供 Agent 可见的历史文件。</h1>
+            <p class="wizard-lead">只分析这一个明确选择的 JSONL 文件，不搜索其他目录，也不上传原始对话。</p>
+            <form id="wizard-history-form" class="wizard-form"><label for="wizard-history-source">历史 JSONL 的本机路径</label><input id="wizard-history-source" type="text" autocomplete="off" placeholder="/本机路径/history.jsonl"><button class="button button-primary" type="submit">分析近 30 天</button></form>
+            <p id="wizard-history-status" class="wizard-status">也可以先跳过，稍后在总览中开启。</p>
+          </div>
+          <div id="wizard-provider" class="wizard-path-panel" hidden>
+            <p class="eyebrow">OPTIONAL PROVIDER</p><h1>连接器只负责带回证据。</h1>
+            <p class="wizard-lead">Core 保持平台无关。你需要先选定 Workspace，再由 Agent 检查能力、授权 Provider，并明确映射允许读取的群或文档。</p>
+            <div class="boundary-list"><span><b>1</b> 选择一个项目 Workspace</span><span><b>2</b> 显式授权一个 Provider</span><span><b>3</b> 确认具体来源后再同步</span></div>
+            <p class="wizard-status">本步骤不会主动探测账号，也不会读取任何外部内容。</p>
+          </div>
+        </section>
+
+        <section class="wizard-panel wizard-finish" data-wizard-step="3" hidden>
+          <span class="finish-mark" aria-hidden="true">✓</span><p class="eyebrow">READY</p><h1>Memory Home 已经准备好了。</h1>
+          <p id="wizard-finish-copy" class="wizard-lead">从总览开始，之后可以随时补充历史或项目来源。</p>
+        </section>
+      </main>
+
+      <footer class="wizard-footer">
+        <button id="wizard-skip" class="button button-quiet" type="button">暂时跳过</button>
+        <div><button id="wizard-back" class="button button-quiet" type="button" hidden>上一步</button><button id="wizard-next" class="button button-primary" type="button">下一步</button></div>
+      </footer>
+    </section>
+
+    <div id="app-shell" class="desktop-shell" hidden>
+      <aside class="app-sidebar">
+        <div class="sidebar-brand window-drag"><span class="brand-glyph" aria-hidden="true">M</span><div><strong>Memory Home</strong><small id="runtime-kind">本地应用</small></div></div>
+        <nav class="app-nav" aria-label="Memory Home 导航">
+          <button class="nav-item is-active" type="button" data-page="overview"><span>⌂</span>总览</button>
+          <button class="nav-item" type="button" data-page="personal"><span>◌</span>我的记忆</button>
+          <button class="nav-item" type="button" data-page="workspaces"><span>□</span>项目</button>
+          <button class="nav-item" type="button" data-page="review"><span>◇</span>待审 <em id="nav-review-count"></em></button>
+          <button class="nav-item" type="button" data-page="sources"><span>↗</span>来源与设置</button>
+        </nav>
+        <div class="sidebar-foot"><span class="status-dot"></span><div><strong>数据留在本机</strong><small>Core 服务已连接</small></div></div>
+      </aside>
+
+      <div class="app-stage">
+        <header class="app-topbar window-drag"><div><h1 id="page-heading">总览</h1><p id="page-subheading">今天的记忆状态与下一步</p></div><div class="local-pill"><span class="status-dot"></span>本地就绪</div></header>
+        <main class="app-content">
+          <section class="app-page is-active" data-page-panel="overview">
+            <div class="welcome-row"><div><p class="eyebrow">MEMORY HOME</p><h2>一个地方，管理个人与项目记忆。</h2></div><p>Agent 负责整理，你决定什么成为长期记忆。</p></div>
+            <section class="summary-grid" aria-label="记忆状态概览">
+              <article class="summary-card summary-primary"><span class="summary-label">个人资料</span><strong id="stat-personal">…</strong><span class="summary-note">条精确个人资料</span></article>
+              <article class="summary-card"><span class="summary-label">项目空间</span><strong id="stat-workspaces">…</strong><span class="summary-note">个 Workspace</span></article>
+              <article class="summary-card"><span class="summary-label">等待审阅</span><strong id="stat-proposed">…</strong><span class="summary-note">条候选记忆</span></article>
+              <article class="summary-card policy-card"><span class="summary-label">学习策略</span><strong id="policy-name" class="policy-name">未启用</strong><span id="policy-note" class="summary-note">先由你决定，再慢慢学习</span></article>
+            </section>
+            <section id="setup-panel" class="setup-panel" aria-labelledby="setup-title" aria-live="polite">
+              <div class="setup-intro"><span id="setup-state" class="setup-state">正在检查</span><h2 id="setup-title">本地运行状态</h2><p id="setup-copy">正在读取本机配置，不会连接外部服务。</p><code id="setup-command" class="setup-command" hidden>python3 scripts/quickstart.py</code></div>
+              <div class="setup-items" aria-label="运行状态"><article id="setup-memory" class="setup-item is-loading"><span>本地记忆</span><strong>检查中</strong><p>确认持久目录与数据结构。</p></article><article id="setup-history" class="setup-item is-loading"><span>历史学习</span><strong>检查中</strong><p>可在需要时开启。</p></article><article id="setup-workspaces" class="setup-item is-loading"><span>项目空间</span><strong>检查中</strong><p>第一次处理项目时再创建。</p></article></div>
+            </section>
+            <section id="learning-panel" class="learning-panel" aria-labelledby="learning-title">
+              <button class="learning-heading" type="button" id="learning-toggle" aria-expanded="false"><div><p class="eyebrow">FIRST LEARNING</p><h2 id="learning-title">理解你的提问方式</h2></div><span id="learning-state" class="learning-state">正在检查</span></button>
+              <div id="learning-body" class="learning-body" hidden><p id="learning-copy" class="learning-copy">首次启用时，只在本机分析当前 Agent 有权看到的近 30 天对话。</p><div id="learning-metrics" class="learning-metrics" hidden></div><div id="habit-list" class="habit-list" hidden></div><form id="history-source-form" class="history-source-form" hidden><label for="history-source">Agent 提供的历史 JSONL</label><div class="history-source-row"><input id="history-source" name="history_source" type="text" autocomplete="off" placeholder="/本机路径/history.jsonl"><button class="button button-primary" type="submit">分析近 30 天</button></div><span>不会搜索其他目录，也不会上传原始对话。</span></form><div id="learning-actions" class="learning-actions" hidden><code id="habits-path" class="habits-path"></code><button id="confirm-learning" class="button button-primary" type="button">确认并启用策略</button></div></div>
+            </section>
+          </section>
+
+          <section id="personal-memory" class="app-page" data-page-panel="personal" aria-labelledby="personal-title">
+            <div class="section-heading"><div><p class="eyebrow">PERSONAL MEMORY</p><h2 id="personal-title">关于你的长期记忆</h2></div><span id="personal-meta" class="quiet-meta">正在读取…</span></div>
+            <div class="home-scope-grid"><article class="home-panel profile-panel"><div class="home-panel-heading"><div><h3>精确个人资料</h3><p>邮箱、学号、地址和结构化经历。值默认隐藏。</p></div><button id="add-profile-item" class="button button-quiet" type="button">添加资料</button></div><div id="profile-list" class="profile-list" aria-live="polite"></div><div id="profile-detail" class="profile-detail" aria-live="polite"><p>选择一个字段查看，或添加新的精确资料。</p></div></article><article class="home-panel"><div class="home-panel-heading"><div><h3>工作脉络与偏好</h3><p>跨项目总览、项目组合，以及确认或待确认的个人偏好。</p></div></div><div id="personal-document-list" class="personal-document-list" aria-live="polite"></div><div id="personal-collection-meta" class="collection-meta"></div></article></div>
+          </section>
+
+          <section id="workspace-memory" class="app-page" data-page-panel="workspaces" aria-labelledby="workspace-title">
+            <div class="section-heading"><div><p class="eyebrow">WORKSPACES</p><h2 id="workspace-title">以项目为中心的知识</h2></div><span id="workspace-meta" class="quiet-meta">正在读取…</span></div><div id="workspace-list" class="workspace-list" aria-live="polite"></div><article id="workspace-detail" class="workspace-detail" hidden aria-live="polite"></article>
+          </section>
+
+          <section id="review-memory" class="app-page inbox-section" data-page-panel="review" aria-labelledby="inbox-title">
+            <div class="section-heading"><div><p class="eyebrow">MEMORY REVIEW</p><h2 id="inbox-title">候选记忆</h2></div><span id="pending-episodes" class="quiet-meta"></span></div>
+            <div class="tabs" role="tablist" aria-label="候选状态"><button class="tab is-active" type="button" role="tab" aria-selected="true" data-status="proposed">待审</button><button class="tab" type="button" role="tab" aria-selected="false" data-status="approved">已批准</button><button class="tab" type="button" role="tab" aria-selected="false" data-status="rejected">已忽略</button><button class="tab" type="button" role="tab" aria-selected="false" data-status="applied">已应用</button></div>
+            <div class="review-frame"><aside class="candidate-pane" aria-label="候选记忆列表"><div id="candidate-list" class="candidate-list" aria-live="polite"></div></aside><article id="detail-pane" class="detail-pane" aria-live="polite"><div class="empty-detail"><div class="empty-symbol" aria-hidden="true">○</div><h3>选择一条候选记忆</h3><p>查看它为何出现，再决定保留或忽略。</p></div></article></div>
+          </section>
+
+          <section class="app-page" data-page-panel="sources">
+            <div class="section-heading"><div><p class="eyebrow">SOURCES & SETTINGS</p><h2>来源与本地设置</h2></div><span class="quiet-meta">连接器默认关闭</span></div>
+            <div class="source-layout"><article class="home-panel"><h3>项目来源</h3><p>外部平台只是可选 Provider。只有明确授权并映射到 Workspace 的来源才会被读取。</p><div id="source-workspace-list" class="source-workspace-list"></div></article><article class="home-panel local-settings"><h3>本地运行</h3><dl><div><dt>应用方式</dt><dd id="runtime-detail">正在确认…</dd></div><div><dt>Memory Home</dt><dd id="home-path-value">正在读取…</dd></div><div><dt>网络边界</dt><dd>仅监听 127.0.0.1</dd></div></dl><p>界面提交的是操作意图；正式写入仍由 Core Writer 完成并校验。</p></article></div>
+          </section>
+        </main>
+      </div>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

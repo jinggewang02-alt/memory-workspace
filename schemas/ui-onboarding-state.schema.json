@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memory-home.local/schemas/ui-onboarding-state.schema.json",
+  "title": "Memory Home UI onboarding state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "completed", "selected_path", "completed_at"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "completed": { "type": "boolean" },
+    "selected_path": {
+      "oneOf": [
+        { "type": "null" },
+        { "enum": ["direct", "history", "provider"] }
+      ]
+    },
+    "completed_at": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "format": "date-time" }
+      ]
+    }
+  }
+}

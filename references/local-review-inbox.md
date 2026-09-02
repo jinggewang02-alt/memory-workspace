@@ -1,12 +1,33 @@
 # Local Memory Home UI
 
-Status: MVP v0.5
+Status: MVP v0.6
 
 The UI is a local, derived view over the whole Memory Home. Personal Memory,
 Workspaces, first-use learning, and asynchronous capture candidates are sibling
 sections in one interface. It is not a second memory store.
 
 ## Start
+
+The preferred same-device experience is the Electron host:
+
+```bash
+npm install
+npm run desktop
+```
+
+Electron launches `quickstart.py` itself, selects a supported Python 3.10+
+runtime, initializes the durable Memory Home idempotently, starts Core on a
+random loopback port, waits for `GET /api/health`, and only then reveals the
+window. Closing the application stops the child Core process. The restricted
+preload exposes runtime metadata only; renderer code has no Node or filesystem
+access.
+
+The first-run shell offers three routes: direct start, one explicitly selected
+30-day history handoff, or optional Provider setup. Completing this shell writes
+only `system/ui/onboarding.json` through `POST /api/ui-state/complete`; it does
+not change canonical Personal or Workspace data.
+
+The browser entry remains a compatibility path.
 
 Run the capability probe first in a new Agent environment, then launch:
 
@@ -108,6 +129,10 @@ session-token-protected local request.
   delegates to the same bounded importer and only reads an explicit path or the
   host-configured `MWORK_HISTORY_FILE` handoff. Rows outside 30 days are not
   turned into Events.
+- The Electron main process owns the Python child lifecycle, uses an ephemeral
+  loopback port, blocks cross-origin navigation and popups, and denies renderer
+  permission requests. External Providers remain disabled until configured
+  through their existing Core contract.
 - `query-habits.md` contains abstract observations, counts, confidence, and
   Agent guidance; it does not copy raw Query text. Tentative habits and the
   Policy remain inactive until `/api/onboarding/confirm`.
