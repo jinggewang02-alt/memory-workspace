@@ -2303,7 +2303,7 @@ h2 {
 }
 
 /* ---------- Footer ---------- */
-footer {
+.page-shell > footer {
   display: flex;
   justify-content: space-between;
   margin: 56px 0 32px;
@@ -2512,7 +2512,7 @@ footer {
     min-height: 400px;
   }
 
-  footer {
+  .page-shell > footer {
     gap: 16px;
   }
 }

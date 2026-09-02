@@ -155,6 +155,9 @@ class LocalReviewInboxTests(unittest.TestCase):
         with urlopen(self.base_url + "/app.css", timeout=3) as response:
             css = response.read().decode()
         self.assertIn("[hidden]", css)
+        self.assertIn(".wizard-footer", css)
+        self.assertIn(".page-shell > footer", css)
+        self.assertNotIn("\nfooter {\n", css)
 
         status, payload, _ = self.get("/api/overview")
         self.assertEqual(status, 200)
