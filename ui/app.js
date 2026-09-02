@@ -1165,6 +1165,8 @@ async function loadRuntime() {
     $("#runtime-detail").textContent = "本地浏览器 + Python Core";
     return;
   }
+  document.documentElement.dataset.desktopPlatform =
+    window.memoryHomeDesktop.platform || "desktop";
   try {
     const runtime = await window.memoryHomeDesktop.runtime();
     $("#runtime-kind").textContent = runtime.packaged ? "桌面应用" : "Electron 开发版";

@@ -158,6 +158,8 @@ class LocalReviewInboxTests(unittest.TestCase):
         self.assertIn(".wizard-footer", css)
         self.assertIn(".page-shell > footer", css)
         self.assertNotIn("\nfooter {\n", css)
+        self.assertIn('html[data-desktop-platform="darwin"] .app-sidebar', css)
+        self.assertIn("dataset.desktopPlatform", (Path(__file__).parents[1] / "ui" / "app.js").read_text())
 
         status, payload, _ = self.get("/api/overview")
         self.assertEqual(status, 200)

@@ -417,12 +417,16 @@
   background: #f0f0ed;
 }
 
+html[data-desktop-platform="darwin"] .app-sidebar {
+  padding-top: 44px;
+}
+
 .sidebar-brand {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  padding: 0 8px 0 54px;
+  padding: 0 8px;
 }
 
 .sidebar-brand > div,
@@ -451,6 +455,10 @@
   align-content: start;
   gap: 3px;
   padding-top: 34px;
+}
+
+html[data-desktop-platform="darwin"] .app-nav {
+  padding-top: 10px;
 }
 
 .nav-item {
@@ -676,7 +684,7 @@
   }
 
   .sidebar-brand {
-    padding-left: 48px;
+    padding-inline: 8px;
   }
 
   .onboarding-header {
@@ -704,6 +712,10 @@
     padding: 8px 12px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  html[data-desktop-platform="darwin"] .app-sidebar {
+    padding: 8px 12px;
   }
 
   .sidebar-brand {
