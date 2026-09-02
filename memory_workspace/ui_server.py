@@ -22,6 +22,7 @@ from . import (
     policy,
     profile,
     project_memory,
+    ui_state,
     workspace,
     writer,
 )
@@ -43,8 +44,8 @@ WORKSPACE_DETAIL_RE = re.compile(
     r"^/api/workspaces/(?P<workspace_id>[a-z0-9]+(?:-[a-z0-9]+)*)$"
 )
 STATIC_FILES = {
-    "/": ("index.html", "text/html; charset=utf-8"),
-    "/index.html": ("index.html", "text/html; charset=utf-8"),
+    "/": ("desktop.html", "text/html; charset=utf-8"),
+    "/index.html": ("desktop.html", "text/html; charset=utf-8"),
     "/app.css": ("app.css", "text/css; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
 }
@@ -409,6 +410,14 @@ def build_handler(
                         }
                     )
                     return
+                if target.path == "/api/ui-state":
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "ui_state": ui_state.load_state(memory_home),
+                        }
+                    )
+                    return
                 workspace_match = WORKSPACE_DETAIL_RE.fullmatch(target.path)
                 if workspace_match:
                     detail = project_memory.load_project_memory(
@@ -479,6 +488,19 @@ def build_handler(
                         value = _required_string(payload, "value")
                         result = _set_profile_single(path, key, value)
                     self._send_json({"ok": True, "result": result})
+                except MemoryWorkspaceError as exc:
+                    self._send_json(
+                        {"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST
+                    )
+                return
+            if target.path == "/api/ui-state/complete":
+                try:
+                    payload = _read_json(self)
+                    result = ui_state.complete_onboarding(
+                        _required_string(payload, "selected_path"),
+                        memory_home=memory_home,
+                    )
+                    self._send_json({"ok": True, "ui_state": result})
                 except MemoryWorkspaceError as exc:
                     self._send_json(
                         {"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST
